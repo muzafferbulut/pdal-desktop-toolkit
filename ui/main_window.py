@@ -17,6 +17,7 @@ from ui.tab_viewers import GISMapView, ThreeDView
 from data.data_handler import IDataReader
 from core.logger import Logger
 from PyQt5.QtCore import Qt, QThread
+from core.read_worker import ReaderWorker
 from typing import Optional
 import re
 import os
@@ -141,30 +142,48 @@ class MainWindow(QMainWindow):
         )
 
         if file_path:
-
-            result = self.reader.read(file_path)
+            self.statusBar().showMessage(f"Loading {os.path.basename(file_path)}...", 0)
+            self.progressBar.show() 
 
             self.worker_thread = QThread()
-
-            if result.get("status"):
-                import os
-
-                file_name = os.path.basename(file_path)
-                file_icon = QIcon("ui/resources/icons/file.png")
-                new_item = QTreeWidgetItem(self.data_tree, [file_name])
-                new_item.setIcon(0, file_icon)
-                new_item.setData(0, Qt.UserRole, file_path)
-                self.data_tree.addTopLevelItem(new_item)
-                self.logger.info(
-                    f"File '{file_name}' successfully read. Point Count: {result.get('count', 'N/A')}"
-                )
-            else:
-                self.logger.error(
-                    f"Error reading file: {result.get('error', 'Unknown Error')}"
-                )
+            self.worker = ReaderWorker(
+                file_path=file_path, 
+                reader=self.reader, 
+                logger=self.logger
+            ) 
+            self.worker.moveToThread(self.worker_thread) 
+            self.worker_thread.started.connect(self.worker.run) 
+            
+            self.worker.finished.connect(self._handle_reader_success)
+            self.worker.error.connect(self._handle_reader_error)
+            self.worker.progress.connect(self._handle_progress)
+            self.worker.finished.connect(self.worker_thread.quit)
+            self.worker.error.connect(self.worker_thread.quit)
+            self.worker.finished.connect(self.worker.deleteLater)
+            self.worker_thread.finished.connect(self.worker_thread.deleteLater)
+            self.worker_thread.start()
 
         else:
             self.logger.warning("File not selected.")
+
+    def _handle_progress(self, value:int):
+        self.progressBar.setValue(value)
+            
+    def _handle_reader_success(self, file_path:str):
+        self.progressBar.hide()
+        self.statusBar().showMessage(f"File '{os.path.basename(file_path)}' loaded successfully!", 5000)
+        file_name = os.path.basename(file_path)
+        file_icon = QIcon("ui/resources/icons/file.png")
+        new_item = QTreeWidgetItem(self.data_tree, [file_name])
+        new_item.setIcon(0, file_icon)
+        new_item.setData(0, Qt.UserRole, file_path)
+        self.data_tree.addTopLevelItem(new_item)
+        self.logger.info(f"File '{file_name}' successfully added to data sources.")
+
+    def _handle_reader_error(self, error_message: str):
+        self.progressBar.hide()
+        self.statusBar().showMessage("ERROR: File reading failed.", 5000)
+        self.logger.error(error_message)
 
     def _setup_filter_panel(self):
         self.filters_dock = QDockWidget("Filters", self)

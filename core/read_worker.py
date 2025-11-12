@@ -16,14 +16,19 @@ class ReaderWorker(QObject):
         self.logger = logger
 
     def run(self):
-        self.logger.info(f"Worker thread started reading: {self.file_path}")
-        result = self.reader.read(self.file_path)
+        try:
+            self.progress.emit(10)
+            result = self.reader.read(self.file_path)
 
-        if result.get("status"):
-            self.finished.emit(self.file_path)
-
-        else:
-            error_message = result.get("error", "Unknown reader error.")
-            self.error.emit(error_message)
-
-        self.logger.info(f"Worker thread finished for: {self.file_path}")
+            if result.get("status"):
+                self.progress.emit(100)
+                self.finished.emit(self.file_path)
+            else:
+                error_message = result.get("error", "Unknown reader error."),
+                self.progress.emit(0)
+                self.error.emit(error_message)
+        except Exception as e:
+            import traceback
+            error_details = f"Worker thread critical error: {e}\n{traceback.format_exc()}"
+            self.progress.emit(0)
+            self.error.emit(f"{error_details}")
