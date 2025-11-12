@@ -1,7 +1,9 @@
 from data.data_handler import IDataReader
 from typing import Dict, Any
+from pyproj import CRS
 import pdal
 import json
+import re
 
 
 class LasLazReader(IDataReader):
@@ -74,3 +76,45 @@ class LasLazReader(IDataReader):
 
         except Exception as e:
             return {"status": False, "error": f"Error during data sampling : {e}"}
+
+    def get_summary_metadata(self, full_metadata:Dict):
+        try:
+            readers_las = full_metadata.get("metadata", {}).get("metadata", {}).get("readers.las", {})
+            is_compressed = readers_las.get("compressed", "None")
+            points = readers_las.get("count", "None")
+            software_id = readers_las.get("software_id", "None")
+            x_range = f"{readers_las.get('minx')}-{readers_las.get('maxz')}"
+            y_range = f"{readers_las.get('miny')}-{readers_las.get('maxy')}"
+            z_range = f"{readers_las.get('minz')}-{readers_las.get('maxz')}"
+            crs_name = readers_las.get("srs", {}).get("json", {}).get("name")
+            spatial_ref = readers_las.get("spatialreference")
+            crs = CRS.from_wkt(spatial_ref)
+            epsg_code = crs.to_epsg()
+            unit_name = crs.axis_info[0].unit_name
+
+            if epsg_code is None:
+                epsg_match = re.findall(r'AUTHORITY\["EPSG","(\d+)"\]', spatial_ref)
+                epsg_code = epsg_match[-1] if epsg_match else None
+
+            if unit_name is None:
+                unit_match = re.search(r'UNIT\["([^"]+)",', spatial_ref)
+                unit_name = unit_match.group(1) if unit_match else None
+
+            return {
+                "status": True,
+                "is_compressed": is_compressed,
+                "points" : points,
+                "software_id": software_id,
+                "x_range": x_range,
+                "y_range": y_range,
+                "z_range": z_range,
+                "crs_name": crs_name,
+                "epsg": epsg_code,
+                "unit": unit_name
+            }
+
+        except Exception as e:
+            return {
+                "status": False,
+                "error": str(e)
+            }

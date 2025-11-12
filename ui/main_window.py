@@ -1,16 +1,7 @@
 from PyQt5.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QAction,
-    QPlainTextEdit,
-    QDockWidget,
-    QTreeWidget,
-    QTabWidget,
-    QFileDialog,
-    QTreeWidgetItem,
-    QProgressBar,
-    QApplication,
-    QTextEdit
+    QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,QTreeWidget,
+    QTabWidget,QFileDialog,QTreeWidgetItem,QProgressBar,QApplication,
+    QTextEdit,QTableWidget,QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from ui.tab_viewers import GISMapView, ThreeDView
@@ -19,7 +10,6 @@ from core.logger import Logger
 from PyQt5.QtCore import Qt, QThread
 from core.read_worker import ReaderWorker
 from typing import Optional
-import re
 import os
 
 
@@ -36,7 +26,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon("ui/resources/icons/app.png"))
         self.setGeometry(100, 100, 1200, 800)
 
-        # arayüz bileşenleri
+        self._data_cache = {}
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -121,9 +112,21 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.data_sources_dock)
 
         self.metadata_dock = QDockWidget("Metadata", self)
-        self.metadata_content = QTextEdit()
-        self.metadata_content.setPlainText("")
-        self.metadata_dock.setWidget(self.metadata_content)
+        
+        self.summary_metadata_table = QTableWidget() 
+        self.summary_metadata_table.setColumnCount(2)
+        self.summary_metadata_table.setHorizontalHeaderLabels(["Özellik", "Değer"])
+        self.summary_metadata_table.horizontalHeader().setVisible(False)
+        self.summary_metadata_table.setEditTriggers(QTableWidget.NoEditTriggers) 
+        self.summary_metadata_table.setSelectionMode(QTableWidget.NoSelection)
+        self.summary_metadata_table.verticalHeader().setVisible(False) 
+
+        self.summary_metadata_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents) 
+        self.summary_metadata_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch) 
+        
+        self.summary_metadata_table.setRowCount(1)
+
+        self.metadata_dock.setWidget(self.summary_metadata_table)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
 
     def _setup_central_widget(self):
@@ -169,15 +172,25 @@ class MainWindow(QMainWindow):
     def _handle_progress(self, value:int):
         self.progressBar.setValue(value)
             
-    def _handle_reader_success(self, file_path:str):
+    def _handle_reader_success(self, file_path:str, bounds:dict, full_metadata:dict, summary_metadata:dict, sample_data):
         self.progressBar.hide()
         self.statusBar().showMessage(f"File '{os.path.basename(file_path)}' loaded successfully!", 5000)
         file_name = os.path.basename(file_path)
         file_icon = QIcon("ui/resources/icons/file.png")
+
+        self._data_cache[file_path] = {
+            "bounds":bounds,
+            "full_metadata": full_metadata,
+            "summary_metadata": summary_metadata,
+            "sample_data": sample_data
+        }
+
         new_item = QTreeWidgetItem(self.data_tree, [file_name])
         new_item.setIcon(0, file_icon)
         new_item.setData(0, Qt.UserRole, file_path)
         self.data_tree.addTopLevelItem(new_item)
+        self.data_tree.setCurrentItem(new_item)
+        self._on_data_item_selected(new_item)
         self.logger.info(f"File '{file_name}' successfully added to data sources.")
 
     def _handle_reader_error(self, error_message: str):
@@ -205,7 +218,6 @@ class MainWindow(QMainWindow):
     def _apply_standard_style(self):
 
         minimal_stylesheet = """
-        /* ... PAYLAŞTIĞINIZ TÜM STİL KODU BURAYA GELECEK ... */
         * {
             background-color: #ffffff;
             color: #333333;
@@ -224,13 +236,12 @@ class MainWindow(QMainWindow):
             margin: 2px;
         }
 
-        /* Dock başlıkları - mavi alt çizgi */
         QDockWidget::title {
             background-color: #f1f3f4;
             color: #333333;
             padding: 9px 12px;
             font-weight: 500;
-            border-bottom: 2px solid #0078d4; /* Mavi vurgu çizgisi */
+            border-bottom: 2px solid #0078d4; 
         }
 
         QTabWidget::pane {
@@ -295,7 +306,7 @@ class MainWindow(QMainWindow):
             background-color: #e9ecef;
         }
         
-        QTextEdit, QLineEdit, QPlainTextEdit, QTreeWidget { /* QTreeWidget'ı ekledik */
+        QTextEdit, QLineEdit, QPlainTextEdit, QTreeWidget {
             background-color: #ffffff;
             color: #333333;
             border: 1px solid #dee2e6;
@@ -331,58 +342,69 @@ class MainWindow(QMainWindow):
         app_font = QFont("Segoe UI", 9)
         QApplication.setFont(app_font)
 
-    def _on_data_item_selected(self, item: QTreeWidgetItem, column: int):
+    def _update_metadata_panel(self, file_name: str, summary_metadata: dict):
+        points = summary_metadata.get("points", "N/A")
+        is_compressed = summary_metadata.get("is_compressed")
+        crs_name = summary_metadata.get("crs_name", "N/A")
+        epsg = summary_metadata.get("epsg", "N/A")
+        software = summary_metadata.get("software_id", "N/A")
+        x_range = summary_metadata.get("x_range")
+        y_range = summary_metadata.get("y_range")
+        z_range = summary_metadata.get("z_range")
+        unit = summary_metadata.get("unit")
+
+        self.summary_metadata_table.setRowCount(0)
+
+        data_to_display = [
+            ("Filename", file_name),
+            ("Points", points),
+            ("Compressed", is_compressed),
+            ("Software", software),
+            ("CRS Name", crs_name),
+            ("EPSG Code", epsg),
+            ("Unit", unit),
+            ("X Range", x_range),
+            ("Y Range", y_range),
+            ("Z Range", z_range)
+        ]
+
+        self.summary_metadata_table.setRowCount(len(data_to_display))
+
+        for row, (key ,value) in enumerate(data_to_display):
+            key_item = QTableWidgetItem(key)
+            value_item = QTableWidgetItem(str(value))
+            
+            font = QFont()
+            font.setBold(True)
+            key_item.setFont(font)
+
+            self.summary_metadata_table.setItem(row, 0, key_item)
+            self.summary_metadata_table.setItem(row, 1, value_item)
+
+    def _on_data_item_selected(self, item: QTreeWidgetItem):
         file_path = item.data(0, Qt.UserRole)
+        file_name = item.text(0)
 
         if not file_path:
-            self.logger.warning(
-                f"No file path found for the selected item. {item.text(0)}"
-            )
+            self.logger.warning(f"No file path found for the selected item: {file_name}")
             return
         
-        self.logger.info(f"'{item.text(0)}' selected. Getting BBox and Metadata...")
-
-        full_metadata = self.reader.get_metadata()
-        bounds_result = self.reader.get_bounds()
-
-        if bounds_result.get("status") is True and full_metadata.get("status") is True:
-            bounds = bounds_result.get("bounds")
+        cached_data = self._data_cache.get(file_path)
+        
+        if not cached_data:
+            self.logger.error(f"Veri cache'te bulunamadı: {file_path}")
+            self.summary_metadata_table.clearContents()
+            self.summary_metadata_table.setRowCount(1)
+            self.summary_metadata_table.setItem(0, 0, QTableWidgetItem("HATA: Cache boş"))
+            return
             
-            pdal_metadata = full_metadata.get("metadata", {})
-            las_info = pdal_metadata.get("readers.las", {})
-            point_count = las_info.get('count', 'N/A')
-            crs_full_text = las_info.get('spatialreference', 'Unknown')
-            crs_name_match = re.search(r'PROJCS\["([^"]+)"', crs_full_text)
-            crs_display_name = crs_name_match.group(1) if crs_name_match else "Unknown"
-            minx = bounds['minx']
-            maxx = bounds['maxx']
-            miny = bounds['miny']
-            maxy = bounds['maxy']
-                                    
-            metadata_display = f"""
-                <p style='font-size: 16px; font-weight: bold; color: #0078d4;'>{item.text(0)}</p>
-                <hr style='border-top: 1px solid #dee2e6;'>
-                
-                <p><b><i style='color: #2196F3;'>&#x25A3;</i> İstatistikler</b></p>
-                <ul style='list-style-type: none; padding-left: 15px;'>
-                    <li><b>Toplam Nokta:</b> {point_count}</li>
-                    <li><b>Sıkıştırma:</b> {"LAZ (Sıkıştırılmış)" if las_info.get('compressed') else "LAS (Sıkıştırılmamış)"}</li>
-                    <li><b>Format Sürümü:</b> {las_info.get('major_version', 'N/A')}.{las_info.get('minor_version', 'N/A')}</li>
-                </ul>
-                
-                <p><b><i style='color: #2196F3;'>&#x25A3;</i> Mekansal Bilgi</b></p>
-                <ul style='list-style-type: none; padding-left: 15px;'>
-                    <li><b>Koordinat Sistemi:</b> {crs_display_name}</li>
-                    <li><b>X Min:</b> {minx}</li>
-                    <li><b>Y Min:</b> {miny}</li>
-                    <li><b>X Max:</b> {maxx}</li>
-                    <li><b>Y Max:</b> {maxy}</li>
+        summary_metadata = cached_data["summary_metadata"]
 
-                </ul>
-            """
-            self.metadata_content.setHtml(metadata_display)
-
+        if summary_metadata.get("status"):
+            self._update_metadata_panel(file_name, summary_metadata)
         else:
-            self.logger.error(
-                f"Veri çekilemedi. BBox Hatası: {bounds_result.get('error', 'N/A')}. Metadata Hatası: {full_metadata.get('error', 'N/A')}"
-            )
+            self.logger.error(f"Metadata okuma hatası: {summary_metadata.get('error', 'Bilinmeyen Hata')}")
+            self.summary_metadata_table.clearContents()
+            self.summary_metadata_table.setRowCount(1)
+            self.summary_metadata_table.setItem(0, 0, QTableWidgetItem("HATA: Veri okunamadı."))
+            self.summary_metadata_table.setItem(0, 1, QTableWidgetItem(summary_metadata.get('error', '')))

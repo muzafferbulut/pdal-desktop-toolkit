@@ -19,3 +19,6 @@ class IDataReader(ABC):
     def get_sample_data(self) -> Dict[str, Any]:
         pass
         
+    @abstractmethod
+    def get_summary_metadata(self, full_metadata:Dict) -> Dict[str, Any]:
+        pass
