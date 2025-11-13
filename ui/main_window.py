@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (
     QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,QTreeWidget,
     QTabWidget,QFileDialog,QTreeWidgetItem,QProgressBar,QApplication,
-    QTextEdit,QTableWidget,QTableWidgetItem, QHeaderView
+    QTextEdit,QTableWidget,QTableWidgetItem, QHeaderView, QMessageBox,
+
 )
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from ui.tab_viewers import GISMapView, ThreeDView
@@ -47,11 +48,9 @@ class MainWindow(QMainWindow):
         self.action_open_file.triggered.connect(self._open_file_dialog)
         self.file_menu.addAction(self.action_open_file)
 
-
         self.action_run_pipeline = QAction(QIcon("ui/resources/icons/run.png"), "Run Pipeline", self)
         self.action_run_pipeline.setShortcut("Ctrl+R")
         self.action_run_pipeline.setStatusTip("Run pipeline (Ctrl+R).")
-        self.file_menu.addAction(self.action_run_pipeline)
 
         self.action_save_as = QAction(QIcon("ui/resources/icons/save.png"), "Save As...", self)
         self.action_save_as.setShortcut("Ctrl+S")
@@ -73,12 +72,46 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_save_pipeline)
         self.file_toolbar.addSeparator()
 
+        self.action_about = QAction(QIcon("ui/resources/icons/about.png"), "About", self)
+        self.action_about.setStatusTip("About")
+        self.action_about.triggered.connect(self._open_about)
+
+        self.help_menu.addAction(self.action_about)
+
         self._setup_log_panel()
         self._setup_left_panels()
         self._setup_central_widget()
         self._setup_filter_panel()
         self._create_status_bar()
         self._apply_standard_style()
+
+    def _open_about(self):
+        try:
+            about_text = (
+                "<div style='font-family:Segoe UI, sans-serif; font-size:10pt; color:#333;'>"
+                "<h3 style='margin-bottom:4px;'>PDAL Desktop Toolkit</h3>"
+                "<p style='margin:0; font-size:9pt;'>"
+                "Version: 0.7.0<br>"
+                "Developer: Muzaffer Bulut<br>"
+                "Contact: bulutmuzafferr@gmail.com<br><br>"
+                "Designed for simple, fast and sustainable geospatial solutions."
+                "</p>"
+                "<p style='margin-top:10px; font-size:8pt; color:#777;'>"
+                "© 2025 Muzaffer Bulut — All rights reserved."
+                "</p>"
+                "</div>"
+            )
+
+            msg = QMessageBox(self)
+            msg.setWindowTitle("About")
+            msg.setTextFormat(1)
+            msg.setIcon(QMessageBox.Information)
+            msg.setText(about_text)
+            msg.addButton("Close", QMessageBox.AcceptRole)
+            msg.exec_()
+
+        except Exception as e:
+            self.logger.error(f"An error occured : {e}")
 
     def _setup_log_panel(self):
         self.log_dock = QDockWidget("Log", self)
@@ -224,7 +257,24 @@ class MainWindow(QMainWindow):
             border: none;
             outline: none;
         }
+
+        QPushButton {
+            background-color: #f2f2f2;
+            border: 1px solid #ccc;
+            padding: 5px 14px;
+            border-radius: 4px;
+            font-family: Segoe UI, sans-serif;
+            font-size: 9pt;
+        }
         
+        QPushButton:hover {
+            background-color: #e6e6e6;
+        }
+        
+        QPushButton:pressed {
+            background-color: #d9d9d9;
+        }
+            
         QMainWindow {
             background-color: #f8f9fa;
             border: 1px solid #e9ecef;
