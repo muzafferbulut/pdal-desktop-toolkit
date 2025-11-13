@@ -440,12 +440,12 @@ class MainWindow(QMainWindow):
             return
         
         cached_data = self._data_cache.get(file_path)
-        
+        bounds_data = cached_data["bounds"]
+
         if not cached_data:
-            self.logger.error(f"Veri cache'te bulunamadı: {file_path}")
+            self.logger.error(f"Data not found in cache: {file_path}")
             self.summary_metadata_table.clearContents()
             self.summary_metadata_table.setRowCount(1)
-            self.summary_metadata_table.setItem(0, 0, QTableWidgetItem("HATA: Cache boş"))
             return
             
         summary_metadata = cached_data["summary_metadata"]
@@ -453,8 +453,8 @@ class MainWindow(QMainWindow):
         if summary_metadata.get("status"):
             self._update_metadata_panel(file_name, summary_metadata)
         else:
-            self.logger.error(f"Metadata okuma hatası: {summary_metadata.get('error', 'Bilinmeyen Hata')}")
+            self.logger.error(f"Metadata reading error.")
             self.summary_metadata_table.clearContents()
             self.summary_metadata_table.setRowCount(1)
-            self.summary_metadata_table.setItem(0, 0, QTableWidgetItem("HATA: Veri okunamadı."))
-            self.summary_metadata_table.setItem(0, 1, QTableWidgetItem(summary_metadata.get('error', '')))
+
+        self.map_view.draw_bbox(cached_data["bounds"])
