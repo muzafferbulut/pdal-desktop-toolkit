@@ -440,7 +440,6 @@ class MainWindow(QMainWindow):
             return
         
         cached_data = self._data_cache.get(file_path)
-        bounds_data = cached_data["bounds"]
 
         if not cached_data:
             self.logger.error(f"Data not found in cache: {file_path}")
@@ -458,3 +457,13 @@ class MainWindow(QMainWindow):
             self.summary_metadata_table.setRowCount(1)
 
         self.map_view.draw_bbox(cached_data["bounds"])
+
+        if cached_data["sample_data"].get("status") is True:
+            sample_data = cached_data["sample_data"]
+            x = sample_data.get("x")
+            y = sample_data.get("y")
+            z = sample_data.get("z")
+            self.three_d_view.render_point_cloud(x, y, z)
+        else:
+            self.logger.warning("Data sampling failed.")
+            return
