@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (
     QTextEdit, QMessageBox,
 )
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
+from ui.data_sources_panel import DataSourcesPanel
 from ui.tab_viewers import GISMapView, ThreeDView
 from ui.metadata_panel import MetadataPanel
 from data.data_handler import IDataReader
@@ -131,12 +132,13 @@ class MainWindow(QMainWindow):
         cursor.insertText(message + "\n")
 
     def _setup_left_panels(self):
-        self.data_tree = QTreeWidget()
-        self.data_tree.setHeaderHidden(True)
-        self.data_tree.itemClicked.connect(self._on_data_item_selected)
+
+        self.data_sources_panel = DataSourcesPanel()
+        self.data_sources_panel.file_single_clicked.connect(self._on_file_single_clicked)
+        self.data_sources_panel.file_double_clicked.connect(self._on_file_double_clicked)
 
         self.data_sources_dock = QDockWidget("Data Sources", self)
-        self.data_sources_dock.setWidget(self.data_tree)
+        self.data_sources_dock.setWidget(self.data_sources_panel)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.data_sources_dock)
 
         self.metadata_dock = QDockWidget("Metadata", self)
@@ -145,7 +147,6 @@ class MainWindow(QMainWindow):
         self.metadata_dock.setWidget(self.metadata_panel)
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
-
 
     def _setup_central_widget(self):
         self.tab_widget = QTabWidget()
@@ -194,8 +195,7 @@ class MainWindow(QMainWindow):
         self.progressBar.hide()
         self.statusBar().showMessage(f"File '{os.path.basename(file_path)}' loaded successfully!", 5000)
         file_name = os.path.basename(file_path)
-        file_icon = QIcon("ui/resources/icons/file.png")
-
+        
         self._data_cache[file_path] = {
             "bounds":bounds,
             "full_metadata": full_metadata,
@@ -203,12 +203,8 @@ class MainWindow(QMainWindow):
             "sample_data": sample_data
         }
 
-        new_item = QTreeWidgetItem(self.data_tree, [file_name])
-        new_item.setIcon(0, file_icon)
-        new_item.setData(0, Qt.UserRole, file_path)
-        self.data_tree.addTopLevelItem(new_item)
-        self.data_tree.setCurrentItem(new_item)
-        self._on_data_item_selected(new_item)
+        self.data_sources_panel.add_file(file_path, file_name)
+        
         self.logger.info(f"File '{file_name}' successfully added to data sources.")
 
     def _handle_reader_error(self, error_message: str):
@@ -377,29 +373,37 @@ class MainWindow(QMainWindow):
         app_font = QFont("Segoe UI", 9)
         QApplication.setFont(app_font)
 
-    def _on_data_item_selected(self, item: QTreeWidgetItem):
-        file_path = item.data(0, Qt.UserRole)
-        file_name = item.text(0)
-
+    def _on_file_single_clicked(self, file_path: str, file_name: str):
         if not file_path:
             self.logger.warning(f"No file path found for the selected item: {file_name}")
             return
-
+        
         cached_data = self._data_cache.get(file_path)
 
         if not cached_data:
             self.logger.error(f"Data not found in cache: {file_path}")
-            self.metadata_panel.clear_metadata() # <<< YENİ
+            self.metadata_panel.clear_metadata() 
             return
-
+        
         summary_metadata = cached_data["summary_metadata"]
 
         if summary_metadata.get("status"):
-            self.metadata_panel.update_metadata(file_name, summary_metadata) # <<< YENİ
+            self.metadata_panel.update_metadata(file_name, summary_metadata)
         else:
             self.logger.error(f"Metadata reading error.")
-            self.metadata_panel.clear_metadata() # <<< YENİ
+            self.metadata_panel.clear_metadata()
 
+    def _on_file_double_clicked(self, file_path: str, file_name:str):
+        if not file_path:
+            self.logger.warning(f"Double click ignored: No file path for {file_name}")
+            return
+        
+        cached_data = self._data_cache.get(file_path)
+
+        if not cached_data:
+            self.logger.warning(f"Cannot render views, data not found in cache: {file_path}")
+            return
+        
         self.map_view.draw_bbox(cached_data["bounds"])
 
         if cached_data["sample_data"].get("status") is True:
@@ -409,5 +413,5 @@ class MainWindow(QMainWindow):
             z = sample_data.get("z")
             self.three_d_view.render_point_cloud(x, y, z)
         else:
-            self.logger.warning("Data sampling failed.")
+            self.logger.warning(f"Data sampling failed, cannot render 3D view for '{file_name}'.")
             return
