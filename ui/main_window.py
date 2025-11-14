@@ -7,6 +7,7 @@ from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from ui.data_sources_panel import DataSourcesPanel
 from ui.tab_viewers import GISMapView, ThreeDView
 from ui.metadata_panel import MetadataPanel
+from ui.toolbox_panel import ToolboxPanel
 from data.data_handler import IDataReader
 from core.read_worker import ReaderWorker
 from PyQt5.QtCore import Qt, QThread
@@ -77,7 +78,7 @@ class MainWindow(QMainWindow):
         self._setup_log_panel()
         self._setup_left_panels()
         self._setup_central_widget()
-        self._setup_filter_panel()
+        self._setup_toolbox_panel()
         self._create_status_bar()
         self._apply_standard_style()
 
@@ -212,12 +213,11 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("ERROR: File reading failed.", 5000)
         self.logger.error(error_message)
 
-    def _setup_filter_panel(self):
-        self.filters_dock = QDockWidget("Filters", self)
-        filters_content = QTextEdit()
-        filters_content.setPlainText("")
-        self.filters_dock.setWidget(filters_content)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.filters_dock)
+    def _setup_toolbox_panel(self): 
+        self.toolbox_dock = QDockWidget("Toolbox", self)
+        self.toolbox_panel = ToolboxPanel()
+        self.toolbox_dock.setWidget(self.toolbox_panel) 
+        self.addDockWidget(Qt.RightDockWidgetArea, self.toolbox_dock)
 
     def _create_status_bar(self):
         self.statusBar()
