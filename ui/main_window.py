@@ -1,15 +1,15 @@
 from PyQt5.QtWidgets import (
     QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,QTreeWidget,
     QTabWidget,QFileDialog,QTreeWidgetItem,QProgressBar,QApplication,
-    QTextEdit,QTableWidget,QTableWidgetItem, QHeaderView, QMessageBox,
-
+    QTextEdit, QMessageBox,
 )
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from ui.tab_viewers import GISMapView, ThreeDView
+from ui.metadata_panel import MetadataPanel
 from data.data_handler import IDataReader
-from core.logger import Logger
-from PyQt5.QtCore import Qt, QThread
 from core.read_worker import ReaderWorker
+from PyQt5.QtCore import Qt, QThread
+from core.logger import Logger
 from typing import Optional
 import os
 
@@ -48,10 +48,6 @@ class MainWindow(QMainWindow):
         self.action_open_file.triggered.connect(self._open_file_dialog)
         self.file_menu.addAction(self.action_open_file)
 
-        self.action_run_pipeline = QAction(QIcon("ui/resources/icons/run.png"), "Run Pipeline", self)
-        self.action_run_pipeline.setShortcut("Ctrl+R")
-        self.action_run_pipeline.setStatusTip("Run pipeline (Ctrl+R).")
-
         self.action_save_as = QAction(QIcon("ui/resources/icons/save.png"), "Save As...", self)
         self.action_save_as.setShortcut("Ctrl+S")
         self.action_save_as.setStatusTip("Save selected layer (Ctrl+S).")
@@ -67,7 +63,6 @@ class MainWindow(QMainWindow):
         self.file_toolbar.setMovable(False)
 
         self.file_toolbar.addAction(self.action_open_file)
-        self.file_toolbar.addAction(self.action_run_pipeline)
         self.file_toolbar.addAction(self.action_save_as)
         self.file_toolbar.addAction(self.action_save_pipeline)
         self.file_toolbar.addSeparator()
@@ -146,21 +141,11 @@ class MainWindow(QMainWindow):
 
         self.metadata_dock = QDockWidget("Metadata", self)
         
-        self.summary_metadata_table = QTableWidget() 
-        self.summary_metadata_table.setColumnCount(2)
-        self.summary_metadata_table.setHorizontalHeaderLabels(["Özellik", "Değer"])
-        self.summary_metadata_table.horizontalHeader().setVisible(False)
-        self.summary_metadata_table.setEditTriggers(QTableWidget.NoEditTriggers) 
-        self.summary_metadata_table.setSelectionMode(QTableWidget.NoSelection)
-        self.summary_metadata_table.verticalHeader().setVisible(False) 
+        self.metadata_panel = MetadataPanel()
+        self.metadata_dock.setWidget(self.metadata_panel)
 
-        self.summary_metadata_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents) 
-        self.summary_metadata_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch) 
-        
-        self.summary_metadata_table.setRowCount(1)
-
-        self.metadata_dock.setWidget(self.summary_metadata_table)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
+
 
     def _setup_central_widget(self):
         self.tab_widget = QTabWidget()
@@ -392,45 +377,6 @@ class MainWindow(QMainWindow):
         app_font = QFont("Segoe UI", 9)
         QApplication.setFont(app_font)
 
-    def _update_metadata_panel(self, file_name: str, summary_metadata: dict):
-        points = summary_metadata.get("points", "N/A")
-        is_compressed = summary_metadata.get("is_compressed")
-        crs_name = summary_metadata.get("crs_name", "N/A")
-        epsg = summary_metadata.get("epsg", "N/A")
-        software = summary_metadata.get("software_id", "N/A")
-        x_range = summary_metadata.get("x_range")
-        y_range = summary_metadata.get("y_range")
-        z_range = summary_metadata.get("z_range")
-        unit = summary_metadata.get("unit")
-
-        self.summary_metadata_table.setRowCount(0)
-
-        data_to_display = [
-            ("Filename", file_name),
-            ("Points", points),
-            ("Compressed", is_compressed),
-            ("Software", software),
-            ("CRS Name", crs_name),
-            ("EPSG Code", epsg),
-            ("Unit", unit),
-            ("X Range", x_range),
-            ("Y Range", y_range),
-            ("Z Range", z_range)
-        ]
-
-        self.summary_metadata_table.setRowCount(len(data_to_display))
-
-        for row, (key ,value) in enumerate(data_to_display):
-            key_item = QTableWidgetItem(key)
-            value_item = QTableWidgetItem(str(value))
-            
-            font = QFont()
-            font.setBold(True)
-            key_item.setFont(font)
-
-            self.summary_metadata_table.setItem(row, 0, key_item)
-            self.summary_metadata_table.setItem(row, 1, value_item)
-
     def _on_data_item_selected(self, item: QTreeWidgetItem):
         file_path = item.data(0, Qt.UserRole)
         file_name = item.text(0)
@@ -438,23 +384,21 @@ class MainWindow(QMainWindow):
         if not file_path:
             self.logger.warning(f"No file path found for the selected item: {file_name}")
             return
-        
+
         cached_data = self._data_cache.get(file_path)
 
         if not cached_data:
             self.logger.error(f"Data not found in cache: {file_path}")
-            self.summary_metadata_table.clearContents()
-            self.summary_metadata_table.setRowCount(1)
+            self.metadata_panel.clear_metadata() # <<< YENİ
             return
-            
+
         summary_metadata = cached_data["summary_metadata"]
 
         if summary_metadata.get("status"):
-            self._update_metadata_panel(file_name, summary_metadata)
+            self.metadata_panel.update_metadata(file_name, summary_metadata) # <<< YENİ
         else:
             self.logger.error(f"Metadata reading error.")
-            self.summary_metadata_table.clearContents()
-            self.summary_metadata_table.setRowCount(1)
+            self.metadata_panel.clear_metadata() # <<< YENİ
 
         self.map_view.draw_bbox(cached_data["bounds"])
 

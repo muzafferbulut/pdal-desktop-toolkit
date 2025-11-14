@@ -81,7 +81,7 @@ class LasLazReader(IDataReader):
 
         try:
             raw_data = self._pipeline.arrays[0]
-            sample_data = raw_data[::100]
+            sample_data = raw_data[::10]
             x = sample_data["X"]
             y = sample_data["Y"]
             z = sample_data["Z"]
