@@ -31,7 +31,7 @@ class ReaderWorker(QObject):
                 self.progress.emit(100)
                 self.finished.emit(self.file_path, self.bounds, self.full_metadata, self.summary_metadata, self.sample_data)
             else:
-                error_message = result.get("error", "Unknown reader error."),
+                error_message = result.get("error", "Unknown reader error.")
                 self.progress.emit(0)
                 self.error.emit(error_message)
         except Exception as e:
