@@ -8,35 +8,61 @@ import re
 
 class LasLazReader(IDataReader):
 
-    def __init__(self):
-        self._pipeline = None
+    def __init__(self, sample_step: int = 10):
+        # analizlerde kullanılacak
+        self._analysis_pipeline = None
+
+        # render için kullanılacak
+        self._render_pipeline = None
+
+        # örnekleme yüzdesi
+        self._sample_step = sample_step
 
     def read(self, file_path: str) -> Dict[str, Any]:
-        json_config = {
-            "pipeline": [{"type": "readers.las", "filename": f"{file_path}"}]
-        }
-
+        """
+        render ve analiz için 2 temel pipeline hazırlar ve
+        hızlı görselleştirme için sadece render pipeline'ı 
+        çalıştırır.
+        """
         try:
-            self._pipeline = pdal.Pipeline(json.dumps(json_config))
-            count = self._pipeline.execute()
-            return {"status": True, "count": count}
+            # analiz pipeline
+            analysis_config = {
+                "pipeline": [
+                    {"type": "readers.las", "filename": f"{file_path}"}
+                ]
+            }
+            self._analysis_pipeline = pdal.Pipeline(json.dumps(analysis_config))
+            self._analysis_pipeline.execute()
+
+            # render pipeline
+            render_config = {
+                "pipeline": [
+                    {"type": "readers.las", "filename": f"{file_path}"},
+                    {"type": "filters.decimation", "step":self._sample_step} 
+                ]
+            }
+            
+            self._render_pipeline = pdal.Pipeline(json.dumps(render_config)) 
+            count = self._render_pipeline.execute()            
+            return {"status":True, "count": count}
+            
         except Exception as e:
-            return {"status": False, "error": str(e)}
+            return {"status":False, "error": f"PDAL Pipeline Error during read: {e}"}
 
     def get_metadata(self):
-        if not self._pipeline:
-            return {"status": False, "error": "Pipeline has not been yet."}
+        if not self._analysis_pipeline:
+            return {"status": False, "error": "Analysis pipeline has not been set."}
+        
         try:
-            metadata_dict = self._pipeline.metadata
+            metadata_dict  = self._analysis_pipeline.metadata
             return {"status": True, "metadata": metadata_dict}
-
         except json.JSONDecodeError as e:
             return {"status": False, "error": f"Metadata JSON parse error. {e}"}
         except Exception as e:
             return {"status": False, "error": str(e)}
 
     def get_bounds(self):
-        if self._pipeline:
+        if self._analysis_pipeline:
             metadata_result = self.get_metadata()
 
             if metadata_result.get("status") is False:
@@ -73,12 +99,12 @@ class LasLazReader(IDataReader):
             return {"status": False, "error": f"The pipeline has not been run yet."}
 
     def get_sample_data(self):
-        if not self._pipeline:
-            return {"status": False, "error": "Pipeline has not been read yet."}
+        if not self._render_pipeline:
+            return {"status": False, "error": "Render pipeline has not been read yet."}
 
         try:
-            raw_data = self._pipeline.arrays[0]
-            sample_data = raw_data[::10]
+            raw_data = self._render_pipeline.arrays[0]
+            sample_data = raw_data
             x = sample_data["X"]
             y = sample_data["Y"]
             z = sample_data["Z"]
