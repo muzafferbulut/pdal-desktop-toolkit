@@ -1,9 +1,8 @@
 from data.data_handler import IDataReader
+from core.geo_utils import GeoUtils
 from typing import Dict, Any
-from pyproj import CRS, Transformer
 import pdal
 import json
-import re
 
 
 class LasLazReader(IDataReader):
@@ -88,13 +87,13 @@ class LasLazReader(IDataReader):
                 return {"status": False, "error": "Bounding box data is missing in metadata."}
             
             spatial_ref = readers_las.get("spatialreference")
-            crs_result = self._parse_crs_info(spatial_ref)
+            crs_result = GeoUtils.parse_crs_info(spatial_ref)
             source_epsg = crs_result.get("epsg")
 
             if source_epsg is None:
                 return {"status": False, "error": "EPSG code not found for transformation."}
 
-            transformed_result = self._transform_bbox(
+            transformed_result = GeoUtils.transform_bbox(
                 bounds=bounds_data_raw,
                 from_epsg = source_epsg,
                 to_epsg=4326
@@ -141,7 +140,7 @@ class LasLazReader(IDataReader):
             crs_name = readers_las.get("srs", {}).get("json", {}).get("name")
             spatial_ref = readers_las.get("spatialreference")
 
-            crs_result = self._parse_crs_info(spatial_ref)
+            crs_result = GeoUtils.parse_crs_info(spatial_ref)
             epsg_code = crs_result.get("epsg")
             unit_name = crs_result.get("unit")
 
@@ -163,45 +162,3 @@ class LasLazReader(IDataReader):
                 "status": False,
                 "error": str(e)
             }
-        
-    def _transform_bbox(self,bounds:dict,from_epsg:int, to_epsg:int = 4326) -> Dict:
-
-        try:
-            transformer = Transformer.from_crs(f"EPSG:{from_epsg}", f"EPSG:{to_epsg}", always_xy=True)
-            x_coords = [bounds.get("minx"), bounds.get("maxx")]
-            y_coords = [bounds.get("miny"), bounds.get("maxy")]
-
-            transformed_x, transformed_y = transformer.transform(x_coords, y_coords)
-
-            return {
-                "minx": transformed_x[0], 
-                "maxx": transformed_x[1], 
-                "miny": transformed_y[0], 
-                "maxy": transformed_y[1]
-            }
-        
-        except Exception as e:
-            return {
-                "status":False,
-                "error": f"CRS transformation failed. {e}"
-            }
-        
-    def _parse_crs_info(self, spatial_ref: str) -> Dict[str, Any]:
-        crs = CRS.from_wkt(spatial_ref)
-
-        epsg_code = crs.to_epsg()
-
-        if epsg_code is None:
-            epsg_match = re.findall(r'AUTHORITY\["EPSG","(\d+)"\]', spatial_ref)
-            epsg_code = epsg_match[-1] if epsg_match else None
-
-        unit_name = crs.axis_info[0].unit_name if crs.axis_info else None
-        if unit_name is None:
-            unit_match = re.search(r'UNIT\["([^"]+)",', spatial_ref)
-            unit_name = unit_match.group(1) if unit_match else None
-        
-        return {
-            "epsg": epsg_code,
-            "unit": unit_name,
-            "crs": crs
-        }
