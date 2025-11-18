@@ -18,22 +18,15 @@ class LasLazReader(IDataReader):
         # örnekleme yüzdesi
         self._sample_step = sample_step
 
+        # file path
+        self._file_path = None
+
     def read(self, file_path: str) -> Dict[str, Any]:
         """
-        render ve analiz için 2 temel pipeline hazırlar ve
-        hızlı görselleştirme için sadece render pipeline'ı 
-        çalıştırır.
+        Render pipeline'ı hazırlar ve çalıştırır. Dosya yolunu saklar.
         """
+        self._file_path = file_path
         try:
-            # analiz pipeline
-            analysis_config = {
-                "pipeline": [
-                    {"type": "readers.las", "filename": f"{file_path}"}
-                ]
-            }
-            self._analysis_pipeline = pdal.Pipeline(json.dumps(analysis_config))
-            self._analysis_pipeline.execute()
-
             # render pipeline
             render_config = {
                 "pipeline": [
@@ -42,19 +35,34 @@ class LasLazReader(IDataReader):
                 ]
             }
             
-            self._render_pipeline = pdal.Pipeline(json.dumps(render_config)) 
-            count = self._render_pipeline.execute()            
+            self._render_pipeline = pdal.Pipeline(json.dumps(render_config))
+            count = self._render_pipeline.execute()           
             return {"status":True, "count": count}
-            
         except Exception as e:
             return {"status":False, "error": f"PDAL Pipeline Error during read: {e}"}
 
     def get_metadata(self):
-        if not self._analysis_pipeline:
-            return {"status": False, "error": "Analysis pipeline has not been set."}
+        if self._analysis_pipeline:
+            try:
+                metadata_dict = self._analysis_pipeline.metadata
+                return {"status":True, "metadata":metadata_dict}
+            except Exception:
+                pass
+
+        if not self._file_path:
+            return {"status": False, "error": "File path is not set for metadata extraction."}
         
+        analysis_config = {
+            "pipeline": [
+                {"type": "readers.las", "filename": f"{self._file_path}"}
+            ]
+        }
+
         try:
-            metadata_dict  = self._analysis_pipeline.metadata
+            temp_pipeline = pdal.Pipeline(json.dumps(analysis_config))
+            temp_pipeline.execute() 
+            metadata_dict  = temp_pipeline.metadata
+            self._analysis_pipeline = temp_pipeline
             return {"status": True, "metadata": metadata_dict}
         except json.JSONDecodeError as e:
             return {"status": False, "error": f"Metadata JSON parse error. {e}"}
