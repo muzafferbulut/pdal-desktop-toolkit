@@ -134,7 +134,7 @@ class LasLazReader(IDataReader):
             is_compressed = readers_las.get("compressed", "None")
             points = readers_las.get("count", "None")
             software_id = readers_las.get("software_id", "None")
-            x_range = f"{readers_las.get('minx')}-{readers_las.get('maxz')}"
+            x_range = f"{readers_las.get('minx')}-{readers_las.get('maxx')}"
             y_range = f"{readers_las.get('miny')}-{readers_las.get('maxy')}"
             z_range = f"{readers_las.get('minz')}-{readers_las.get('maxz')}"
             crs_name = readers_las.get("srs", {}).get("json", {}).get("name")
