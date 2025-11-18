@@ -70,41 +70,43 @@ class LasLazReader(IDataReader):
             return {"status": False, "error": str(e)}
 
     def get_bounds(self):
-        if self._analysis_pipeline:
-            metadata_result = self.get_metadata()
+        metadata_result = self.get_metadata()
+        
+        if metadata_result.get("status") is False:
+            return metadata_result
 
-            if metadata_result.get("status") is False:
-                return metadata_result
+        try:
+            readers_las = metadata_result["metadata"]["metadata"]["readers.las"]
+            bounds_data_raw = {
+                "minx": readers_las.get('minx'),
+                "miny": readers_las.get('miny'),
+                "maxx": readers_las.get('maxx'),
+                "maxy": readers_las.get('maxy')
+            }
 
-            try:
-                readers_las = metadata_result["metadata"]["metadata"]["readers.las"]
-                bounds_data_raw = {
-                    "minx": readers_las.get('minx'),
-                    "miny": readers_las.get('miny'),
-                    "maxx": readers_las.get('maxx'),
-                    "maxy": readers_las.get('maxy')
-                }
+            if any(v is None for v in bounds_data_raw.values()):
+                return {"status": False, "error": "Bounding box data is missing in metadata."}
+            
+            spatial_ref = readers_las.get("spatialreference")
+            crs_result = self._parse_crs_info(spatial_ref)
+            source_epsg = crs_result.get("epsg")
 
-                spatial_ref = readers_las.get("spatialreference")
+            if source_epsg is None:
+                return {"status": False, "error": "EPSG code not found for transformation."}
 
-                crs_result = self._parse_crs_info(spatial_ref)
-                source_epsg = crs_result.get("epsg")
+            transformed_result = self._transform_bbox(
+                bounds=bounds_data_raw,
+                from_epsg = source_epsg,
+                to_epsg=4326
+            )
 
-                transformed_result = self._transform_bbox(
-                    bounds=bounds_data_raw,
-                    from_epsg = source_epsg,
-                    to_epsg=4326
-                )
-
-                if transformed_result.get("status"):
-                    return {"status": True, "bounds": transformed_result}
-                else:
-                    return transformed_result
-                
-            except Exception as e:
-                return {"status": False, "error": f"Error extracting bounds: {e}"}
-        else:
-            return {"status": False, "error": f"The pipeline has not been run yet."}
+            if transformed_result.get("status") is None:
+                return {"status": True, **transformed_result}
+            else:
+                return transformed_result
+            
+        except Exception as e:
+            return {"status": False, "error": f"Error extracting bounds: {e}"}
 
     def get_sample_data(self):
         if not self._render_pipeline:
