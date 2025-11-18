@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QDockWidget
+from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QMenu
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, pyqtSignal
 from typing import Optional
@@ -7,6 +7,11 @@ class DataSourcesPanel(QWidget):
 
     file_single_clicked = pyqtSignal(str, str)
     file_double_clicked = pyqtSignal(str, str)
+    zoom_to_bbox_requested = pyqtSignal(str)
+    export_layer_requested = pyqtSignal(str)
+    save_pipeline_requested = pyqtSignal(str)
+    save_full_metadata_requested = pyqtSignal(str)
+    remove_layer_requested = pyqtSignal(str)
 
     def __init__(self, parent:Optional[QWidget] = None):
         super().__init__(parent)
@@ -22,8 +27,38 @@ class DataSourcesPanel(QWidget):
         tree.setHeaderHidden(True)
         tree.itemClicked.connect(self._on_single_clicked)
         tree.itemDoubleClicked.connect(self._on_double_clicked)
+        tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        tree.customContextMenuRequested.connect(self._show_context_menu)
         return tree
     
+    def _show_context_menu(self, position):
+        item = self.data_tree.itemAt(position)
+        if item and item.data(0, Qt.UserRole):
+            file_path = item.data(0, Qt.UserRole)
+            
+            menu = QMenu()
+            
+            action_zoom_to_bbox = menu.addAction(QIcon("ui/resources/icons/zoom_to.png"), "Zoom to BBox")
+            menu.addSeparator()
+            action_export_layer = menu.addAction(QIcon("ui/resources/icons/export.png"), "Export Layer")
+            action_save_pipeline = menu.addAction(QIcon("ui/resources/icons/save_pipeline.png"), "Save Pipeline")
+            action_save_metadata = menu.addAction(QIcon("ui/resources/icons/metadata.png"), "Save Full Metadata")
+            menu.addSeparator()
+            action_remove = menu.addAction(QIcon("ui/resources/icons/remove.png"), "Remove Layer")
+            
+            selected_action = menu.exec_(self.data_tree.mapToGlobal(position))
+            
+            if selected_action == action_zoom_to_bbox:
+                self.zoom_to_bbox_requested.emit(file_path)
+            elif selected_action == action_export_layer:
+                self.export_layer_requested.emit(file_path)
+            elif selected_action == action_save_pipeline:
+                self.save_pipeline_requested.emit(file_path)
+            elif selected_action == action_save_metadata:
+                self.save_full_metadata_requested.emit(file_path)
+            elif selected_action == action_remove:
+                self.remove_layer_requested.emit(file_path)
+
     def _on_single_clicked(self, item: QTreeWidgetItem):
         file_path = item.data(0, Qt.UserRole)
         file_name = item.text(0)
