@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (
-    QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,QTreeWidget,
-    QTabWidget,QFileDialog,QTreeWidgetItem,QProgressBar,QApplication,
-    QTextEdit, QMessageBox,
+    QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,
+    QTabWidget,QFileDialog,QProgressBar,QApplication,
+    QMessageBox,
 )
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from ui.data_sources_panel import DataSourcesPanel
@@ -37,13 +37,18 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # create menus
-        menu_bar = self.menuBar()
-        self.file_menu = menu_bar.addMenu("File")
-        self.view_menu = menu_bar.addMenu("View")
-        self.help_menu = menu_bar.addMenu("Help")
+        self._setup_log_panel()
+        self._setup_left_panels()
+        self._setup_central_widget()
+        self._setup_toolbox_panel()
+        self._create_status_bar()
+        self._apply_standard_style()
 
-        # create actions
+        menu_bar = self.menuBar()
+
+        # file menu actions
+        self.file_menu = menu_bar.addMenu("File")
+
         self.action_open_file = QAction(QIcon("ui/resources/icons/open.png"), "Open File", self)
         self.action_open_file.setShortcut("Ctrl+O")
         self.action_open_file.setStatusTip("Open point cloud file (Ctrl+O).")
@@ -55,12 +60,33 @@ class MainWindow(QMainWindow):
         self.action_save_as.setStatusTip("Save selected layer (Ctrl+S).")
         self.file_menu.addAction(self.action_save_as)
 
-        self.file_menu.addAction(self.action_save_as)
         self.action_save_pipeline = QAction(QIcon("ui/resources/icons/save_pipeline.png"), "Save Pipeline...", self)
         self.action_save_pipeline.setShortcut("Ctrl+P")
         self.action_save_pipeline.setStatusTip("Save active pipeline (Ctrl+P).")
         self.file_menu.addAction(self.action_save_pipeline)
 
+        # view menü actions
+        self.view_menu = menu_bar.addMenu("View")
+        self.view_menu.addAction(self.data_sources_dock.toggleViewAction())
+        self.view_menu.addAction(self.metadata_dock.toggleViewAction())
+        self.view_menu.addAction(self.toolbox_dock.toggleViewAction())
+        self.view_menu.addAction(self.log_dock.toggleViewAction())
+
+        self.view_menu.addSeparator()
+
+        self.action_reset_layout = QAction("Restore Default", self)
+        self.action_reset_layout.triggered.connect(self._reset_layout)
+        self.view_menu.addAction(self.action_reset_layout)
+
+        # help menu actions
+        self.help_menu = menu_bar.addMenu("Help")
+
+        self.action_about = QAction(QIcon("ui/resources/icons/about.png"), "About", self)
+        self.action_about.setStatusTip("About")
+        self.action_about.triggered.connect(self._open_about)
+        self.help_menu.addAction(self.action_about)
+
+        # toolbar actions
         self.file_toolbar = self.addToolBar("File Operations")
         self.file_toolbar.setMovable(False)
 
@@ -69,18 +95,21 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_save_pipeline)
         self.file_toolbar.addSeparator()
 
-        self.action_about = QAction(QIcon("ui/resources/icons/about.png"), "About", self)
-        self.action_about.setStatusTip("About")
-        self.action_about.triggered.connect(self._open_about)
+    def _reset_layout(self):
 
-        self.help_menu.addAction(self.action_about)
+        for dock in [self.data_sources_dock, self.metadata_dock, 
+                     self.toolbox_dock, self.log_dock]:
+            self.removeDockWidget(dock)
 
-        self._setup_log_panel()
-        self._setup_left_panels()
-        self._setup_central_widget()
-        self._setup_toolbox_panel()
-        self._create_status_bar()
-        self._apply_standard_style()
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.data_sources_dock)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.toolbox_dock)
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.log_dock)  
+
+        self.data_sources_dock.show()
+        self.metadata_dock.show()
+        self.toolbox_dock.show()
+        self.log_dock.show()
 
     def _open_about(self):
         try:
