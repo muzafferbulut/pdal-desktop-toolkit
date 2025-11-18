@@ -1,56 +1,42 @@
-# TASARIM
+# 🚀 PDAL Desktop Toolkit
 
-## Katmanlı Mimari
+**PDAL Desktop Toolkit**, nokta bulutu verilerini (LAS/LAZ) hızlı bir şekilde okumak, görselleştirmek (2D Harita ve 3D Nokta Bulutu) ve PDAL filtrelerini kullanarak işlemek için tasarlanmış modern bir masaüstü uygulamasıdır. PyQt5, PyVista ve PDAL gibi güçlü coğrafi bilgi sistemleri (CBS) kütüphaneleri üzerine inşa edilmiştir.
 
-Uygulamamızı 3 ana katmana ayırarak Tek Sorumluluk Prensibi (SRP)'ni uygulayacağız:
+---
 
-* Sunum Katmanı (Presentation Layer): PyQt5 ile kullanıcı arayüzü (UI) ve kullanıcı etkileşimlerini yönetir. (Gereksinimler: UI-01'den UI-11'e kadar her şey).
+## ✨ Temel Özellikler
 
-* İş Mantığı Katmanı (Business Logic Layer / Core): Uygulamanın temel görevlerini (örneğin: Pipeline oluşturma, loglama, tema yönetimi) içerir.
+* **Çoklu Görünüm Desteği :**
+    * **2D Harita Görünümü (Leaflet) :** Veri sınırlarını (BBOX) WGS84 (EPSG:4326) koordinatlarında görüntüler.
+    * **3D Nokta Bulutu Görünümü (PyVista) :** Yüksek performanslı 3D görselleştirme sunar.
 
-* Veri Erişim Katmanı (Data Access Layer): PDAL kütüphanesi ile doğrudan etkileşimi yönetir, veri okuma ve işleme işlemlerini yapar. (Gereksinimler: DS-01, DS-03, DS-04).
+* **Meta Veri :** Okunan verinin nokta sayısı, koordinat sistemi, kaydedilen yazılım gibi bilgileri metaverisinden çekere görüntüleme imkanı sunar.
 
-## Genişletilebilirlik
+* **Katman Paneli :** Uygulama çalışır durumdayken katman paneli yardımıyla birden fazla veri eklenebilmekte ve bilgilere ayrı ayrı ulaşılabilmektedir.
 
-Veri kaynaklarının genişletilebilir olması için Açık/Kapalı Prensibi (OCP) ve Bağımlılık Tersine Çevirme Prensibi (DIP) hayati önem taşır:
+* **Log Paneli :** Uygulama yaptığı işleri ve aldığı hataları log panelinde raporlamaktadır.
 
-* OCP (Open/Closed Principle): Uygulamamız yeni veri formatlarına (.las, .laz dışında .ply, .e57 vb.) açık olmalı, ancak mevcut kodda büyük değişiklikler yapmaya kapalı olmalıdır. Bunu Soyutlamalar (Abstraction) kullanarak başaracağız.
+---
 
-* DIP (Dependency Inversion Principle): Üst seviye modüller (örneğin ana uygulama mantığı) alt seviye modüllere (örneğin LasFileHandler sınıfına) doğrudan bağımlı olmak yerine, aradaki bir arayüze (Interface/Abstract Class) bağımlı olmalıdır.
+## 🖥️ Kullanım
 
-# GEREKSİNİMLER
+1.  Uygulama açıldıktan sonra üst araç çubuğundaki **"Open File"** butonuna (veya `Ctrl+O`) tıklayın.
+2.  Bilgisayarınızdan bir `.las` veya `.laz` dosyası seçin.
+3.  Dosya, sol paneldeki **Data Sources** altına eklendikten sonra:
+    * Dosyaya **Tek Tıkladığınızda**, sol alt paneldeki **Metadata** (özet meta veriler) otomatik olarak güncellenir.
+    * Dosyaya **Çift Tıkladığınızda**, **Map View** (Veri sınırları çizilir) ve **3D View** (Nokta bulutunun örneklenmiş kısmı görüntülenir) sekmeleri güncellenir.
 
-## Uygulama Arayüzü
+---
 
-* UI-01: Uygulama arayüzünde menu bar olmalı. Menü bar seçenekleri şunlar olmalı “File”, “View”, “Themes”, “Help”.
 
-* UI-02: File menüsü altında “Open File”, “Save Pipeline”, “Save as” seçenekleri olmalı.
+## 🤝 Katkıda Bulunma
 
-* UI-03: View menüsü altında uygulamada yer alan dock widgetlar yer almalı. Bu dock widgetların ekranda görüntülenip görüntülenmemesi durumu burdan yönetilebilmeli. Default’a dönüş mümkün olmalı.
+Geliştirme sürecine katkıda bulunmak isterseniz, lütfen **Clean Code** ve **Sürdürülebilirlik** ilkelerine dikkat ederek bir **Pull Request** açın.
 
-* UI-04: Themes menüsü altında uygulamada yer alan temalar görüntülenebilmeli ve kullanıcı varsayılan temasını değiştirebilmeli.
+---
 
-* UI-05: Help menüsü altında basit bir dialog penceresi ile uygulama bilgileri yer almalıdır.
- 
-* UI-06: Uygulama bir toolbar’a sahip olmalı. Bu toolbarda dosya ekleme, pipeline çalıştırma, mevcut çalışmayı kaydetme gibi özellikler olmalı.
+## 📧 İletişim
 
-* UI-07: Uygulama ana ekranın sol kısmında data sources ve metadata olmak üzere 2 adet dock widget olmalı.
-
-* UI-08: Uygulama ana ekranı sağ tarafında Filters dock paneli olmalı.
-
-* UI-09: Uygulama ana ekranı altında log paneli olmalı.Yapılan her işlem log panelinde yer almalı.
-
-* UI-10: Uygulama ana ekranı ortasında 2 tab ekranından oluşan bir tab widget olmalı. bu tab widget’ı 1. tab’i bir leaflet haritası, 2. tab’i ise bir 3d görüntüleme ekranına sahip olmalıdır.
-
-* UI-11: Uygulamaya eklenen nokta bulutu verisinin bboxu leaflet haritasına çizilmelidir.
-
-## Veri Okuma
-
-* DR-01: .laz/.las dosyaları veri kaynağı olarak kullanılabilmelidir.
-
-* DR-02: Veri kaynakları daha sonradan genişletilebilir olmalıdır.
-
-* DR-03: Okunan veriler basitleştirilmiş şekilde uygulamada render edilmelidir.
-
-* DR-04: Hangi verinin render edildiği/okunduğu uygulamanın sol tarafında bulunan bir ağaç yapısı ile kaynak/veri hiyerarşisinde gösterilmelidir.
-
+* **Geliştirici:** Muzaffer Bulut
+* **İletişim:** bulutmuzafferr@gmail.com
+* **Versiyon:** 0.7.0 (Geliştirme Aşamasında)
