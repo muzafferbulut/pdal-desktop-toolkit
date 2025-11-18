@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QMenu
+from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QMenu, QTreeWidgetItemIterator
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, pyqtSignal
 from typing import Optional
@@ -81,3 +81,14 @@ class DataSourcesPanel(QWidget):
         self.data_tree.addTopLevelItem(new_item)
         self.data_tree.setCurrentItem(new_item)
         self.file_single_clicked.emit(file_path, file_name)
+
+    def remove_layer(self, file_path:str):
+        iterator = QTreeWidgetItemIterator(self.data_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.data(0, Qt.UserRole) == file_path:
+                root = item.parent() or self.data_tree.invisibleRootItem()
+                root.removeChild(item)
+                del item
+                break
+            iterator +=1

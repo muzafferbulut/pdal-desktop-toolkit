@@ -162,10 +162,14 @@ class MainWindow(QMainWindow):
         cursor.insertText(message + "\n")
 
     def _setup_left_panels(self):
-
         self.data_sources_panel = DataSourcesPanel()
         self.data_sources_panel.file_single_clicked.connect(self._on_file_single_clicked)
         self.data_sources_panel.file_double_clicked.connect(self._on_file_double_clicked)
+        self.data_sources_panel.zoom_to_bbox_requested.connect(self._handle_zoom_to_bbox)
+        self.data_sources_panel.export_layer_requested.connect(self._handle_export_layer)
+        self.data_sources_panel.save_pipeline_requested.connect(self._handle_save_pipeline)
+        self.data_sources_panel.save_full_metadata_requested.connect(self._handle_save_full_metadata)
+        self.data_sources_panel.remove_layer_requested.connect(self._handle_remove_layer)
 
         self.data_sources_dock = QDockWidget("Data Sources", self)
         self.data_sources_dock.setWidget(self.data_sources_panel)
@@ -177,6 +181,54 @@ class MainWindow(QMainWindow):
         self.metadata_dock.setWidget(self.metadata_panel)
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
+
+    def _handle_zoom_to_bbox(self, file_path: str):
+        file_name = os.path.basename(file_path)
+        cached_data = self._data_cache.get(file_path)
+
+        if not cached_data:
+            self.logger.error(f"Cannot zoom, data not found in cache: {file_name}")
+            return
+        
+        self.map_view.draw_bbox(cached_data["bounds"])
+        self.logger.info(f"Zoomed Map View to BBox of '{file_name}'.")
+
+    def _handle_export_layer(self, file_path: str):
+        file_name = os.path.basename(file_path)
+        self.logger.info(f"Context Menu: Export Layer requested for '{file_name}'. (Not implemented yet)")
+
+    def _handle_save_pipeline(self, file_path: str):
+        file_name = os.path.basename(file_path)
+        self.logger.info(f"Context Menu: Save Pipeline requested for '{file_name}'. (Not implemented yet)")
+
+    def _handle_save_full_metadata(self, file_path: str):
+        file_name = os.path.basename(file_path)
+        cached_data = self._data_cache.get(file_path)
+        
+        if not cached_data:
+            self.logger.error(f"Cannot save metadata, data not found in cache: {file_name}")
+            return
+
+        self.logger.info(f"Context Menu: Save Full Metadata requested for '{file_name}'. (Not implemented yet)")
+
+    def _handle_remove_layer(self, file_path: str):
+        file_name = os.path.basename(file_path)
+        
+        if file_path in self._data_cache:
+            del self._data_cache[file_path]
+            self.logger.info(f"File '{file_name}' removed from data cache.")
+            self.data_sources_panel.remove_layer(file_path)
+            self.logger.info(f"File '{file_name}' removed from Data Sources Panel.")
+            self.metadata_panel.clear_metadata()            
+            self.map_view.draw_bbox({})
+            self.three_d_view.plotter.clear()
+            self.map_view.clear_bbox()
+            self.logger.info(f"Views cleared after removing '{file_name}'.")
+        else:
+            self.logger.warning(f"File '{file_name}' not found in cache for removal. Checking UI only.")
+            self.data_sources_panel.remove_layer(file_path)
+            self.metadata_panel.clear_metadata()
+            self.logger.info(f"File '{file_name}' removed from UI.")
 
     def _setup_central_widget(self):
         self.tab_widget = QTabWidget()

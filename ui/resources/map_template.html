@@ -103,6 +103,12 @@
         }).addTo(boundsLayer);
         map.fitBounds(bounds, { padding: [20, 20] });
       };
+
+      window.clearBBoxJS = function () {
+        if (boundsLayer) {
+          boundsLayer.clearLayers();
+        }
+      };
     </script>
   </body>
 </html>

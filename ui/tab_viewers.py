@@ -30,6 +30,11 @@ class GISMapView(QWebEngineView):
         js_command = f"window.drawBBoxJS({minx}, {miny}, {maxx}, {maxy});"
         self.page().runJavaScript(js_command)
 
+    def clear_bbox(self):
+        if not self.map_is_loaded:
+            return
+        js_command = "window.clearBBoxJS();"
+        self.page().runJavaScript(js_command)
 
 class ThreeDView(QFrame):
 
