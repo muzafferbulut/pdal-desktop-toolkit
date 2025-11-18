@@ -8,16 +8,9 @@ import json
 class LasLazReader(IDataReader):
 
     def __init__(self, sample_step: int = 10):
-        # analizlerde kullanılacak
         self._analysis_pipeline = None
-
-        # render için kullanılacak
         self._render_pipeline = None
-
-        # örnekleme yüzdesi
         self._sample_step = sample_step
-
-        # file path
         self._file_path = None
 
     def read(self, file_path: str) -> Dict[str, Any]:
@@ -26,28 +19,19 @@ class LasLazReader(IDataReader):
         """
         self._file_path = file_path
         try:
-            # render pipeline
             render_config = {
                 "pipeline": [
                     {"type": "readers.las", "filename": f"{file_path}"},
                     {"type": "filters.decimation", "step":self._sample_step} 
                 ]
             }
-            
             self._render_pipeline = pdal.Pipeline(json.dumps(render_config))
             count = self._render_pipeline.execute()           
             return {"status":True, "count": count}
         except Exception as e:
             return {"status":False, "error": f"PDAL Pipeline Error during read: {e}"}
 
-    def get_metadata(self):
-        if self._analysis_pipeline:
-            try:
-                metadata_dict = self._analysis_pipeline.metadata
-                return {"status":True, "metadata":metadata_dict}
-            except Exception:
-                pass
-
+    def get_metadata(self):       
         if not self._file_path:
             return {"status": False, "error": "File path is not set for metadata extraction."}
         
