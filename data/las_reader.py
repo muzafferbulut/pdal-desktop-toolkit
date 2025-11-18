@@ -52,12 +52,9 @@ class LasLazReader(IDataReader):
                 }
 
                 spatial_ref = readers_las.get("spatialreference")
-                crs = CRS.from_wkt(spatial_ref)
-                source_epsg = crs.to_epsg()
 
-                if source_epsg is None:
-                    epsg_match = re.findall(r'AUTHORITY\["EPSG","(\d+)"\]', spatial_ref)
-                    source_epsg = epsg_match[-1] if epsg_match else None
+                crs_result = self._parse_crs_info(spatial_ref)
+                source_epsg = crs_result.get("epsg")
 
                 transformed_result = self._transform_bbox(
                     bounds=bounds_data_raw,
@@ -107,17 +104,10 @@ class LasLazReader(IDataReader):
             z_range = f"{readers_las.get('minz')}-{readers_las.get('maxz')}"
             crs_name = readers_las.get("srs", {}).get("json", {}).get("name")
             spatial_ref = readers_las.get("spatialreference")
-            crs = CRS.from_wkt(spatial_ref)
-            epsg_code = crs.to_epsg()
-            unit_name = crs.axis_info[0].unit_name
 
-            if epsg_code is None:
-                epsg_match = re.findall(r'AUTHORITY\["EPSG","(\d+)"\]', spatial_ref)
-                epsg_code = epsg_match[-1] if epsg_match else None
-
-            if unit_name is None:
-                unit_match = re.search(r'UNIT\["([^"]+)",', spatial_ref)
-                unit_name = unit_match.group(1) if unit_match else None
+            crs_result = self._parse_crs_info(spatial_ref)
+            epsg_code = crs_result.get("epsg")
+            unit_name = crs_result.get("unit")
 
             return {
                 "status": True,
@@ -159,3 +149,23 @@ class LasLazReader(IDataReader):
                 "status":False,
                 "error": f"CRS transformation failed. {e}"
             }
+        
+    def _parse_crs_info(self, spatial_ref: str) -> Dict[str, Any]:
+        crs = CRS.from_wkt(spatial_ref)
+
+        epsg_code = crs.to_epsg()
+
+        if epsg_code is None:
+            epsg_match = re.findall(r'AUTHORITY\["EPSG","(\d+)"\]', spatial_ref)
+            epsg_code = epsg_match[-1] if epsg_match else None
+
+        unit_name = crs.axis_info[0].unit_name if crs.axis_info else None
+        if unit_name is None:
+            unit_match = re.search(r'UNIT\["([^"]+)",', spatial_ref)
+            unit_name = unit_match.group(1) if unit_match else None
+        
+        return {
+            "epsg": epsg_code,
+            "unit": unit_name,
+            "crs": crs
+        }
