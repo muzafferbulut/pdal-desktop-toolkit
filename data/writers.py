@@ -2,7 +2,6 @@ from data.data_handler import IDataWriter
 from typing import Any, Dict
 import json
 import pdal
-import os
 
 class PipelineWriter(IDataWriter):
      
@@ -36,3 +35,6 @@ class LasWriter(IDataWriter):
         
         except Exception as e:
             return {"status": False, "error": f"Export failed: {str(e)}"}
+        
+class MetadataWriter(PipelineWriter):
+    pass

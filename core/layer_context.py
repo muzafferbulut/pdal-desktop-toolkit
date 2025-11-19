@@ -28,9 +28,10 @@ class LayerContext:
     tutulduğu sınıf.
     """
 
-    def __init__(self, file_path:str, initial_metadata:Dict):
+    def __init__(self, file_path:str, initial_metadata:Dict, full_metadata: Dict = None):
         self.file_path = file_path
         self.metadata = initial_metadata
+        self.full_metadata = full_metadata
 
         # stage list
         self.stages: List[PipelineStage] = []

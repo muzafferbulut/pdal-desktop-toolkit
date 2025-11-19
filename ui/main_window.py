@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWid
     QTabWidget,QFileDialog,QProgressBar,QApplication,QMessageBox,)
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from core.layer_context import LayerContext, PipelineStage
-from data.writers import PipelineWriter
+from data.writers import PipelineWriter, MetadataWriter, LasWriter
 from core.export_worker import ExportWorker
 from ui.data_sources_panel import DataSourcesPanel
 from core.pipeline_builder import PipelineBuilder
@@ -293,8 +293,34 @@ class MainWindow(QMainWindow):
         if not cached_data:
             self.logger.error(f"Cannot save metadata, data not found in cache: {file_name}")
             return
+        
+        metadata_to_save = getattr(cached_data, "full_metadata", None)
 
-        self.logger.info(f"Context Menu: Save Full Metadata requested for '{file_name}'. (Not implemented yet)")
+        if not metadata_to_save:
+            self.logger.warning(f"Full metadata not available for {file_name}. Saving summary instead.")
+            metadata_to_save = cached_data.metadata
+
+
+        save_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Save Metadata", 
+            f"metadata_{file_name}.json", 
+            "JSON Files (*.json)"
+        )
+
+        if not save_path:
+            return
+        
+        writer = MetadataWriter()
+        result = writer.write(save_path, metadata_to_save)
+
+        if result.get("status"):
+            self.logger.info(f"Metadata saved to: {save_path}")
+            self.statusBar().showMessage("Metadata saved successfully.", 3000)
+        else:
+            error_msg = result.get("error")
+            self.logger.error(f"Metadata save failed: {error_msg}")
+            QMessageBox.critical(self, "Error", f"Could not save metadata:\n{error_msg}")
 
     def _handle_remove_layer(self, file_path: str):
         file_name = os.path.basename(file_path)
@@ -363,7 +389,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"File '{os.path.basename(file_path)}' loaded successfully!", 5000)
         file_name = os.path.basename(file_path)
         
-        context = LayerContext(file_path, summary_metadata)
+        context = LayerContext(file_path, summary_metadata, full_metadata)
         context.current_render_data = sample_data
         context.bounds = bounds
         
