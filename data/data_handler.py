@@ -22,3 +22,9 @@ class IDataReader(ABC):
     @abstractmethod
     def get_summary_metadata(self, full_metadata:Dict) -> Dict[str, Any]:
         pass
+
+class IDataWriter(ABC):
+
+    @abstractmethod
+    def write(self, file_path:str, data:Any, **kwargs) -> Dict[str, Any]:
+        pass

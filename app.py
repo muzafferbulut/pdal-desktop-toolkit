@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication
-from data.las_reader import LasLazReader
+from data.readers import LasLazReader
 from ui.main_window import MainWindow
 from core.logger import Logger
 import sys

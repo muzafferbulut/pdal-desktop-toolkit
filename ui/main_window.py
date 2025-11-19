@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWid
     QTabWidget,QFileDialog,QProgressBar,QApplication,QMessageBox,)
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from core.layer_context import LayerContext, PipelineStage
+from data.writers import PipelineWriter, LasWriter
 from ui.data_sources_panel import DataSourcesPanel
 from core.pipeline_builder import PipelineBuilder
 from ui.tab_viewers import GISMapView, ThreeDView
@@ -200,7 +201,34 @@ class MainWindow(QMainWindow):
 
     def _handle_save_pipeline(self, file_path: str):
         file_name = os.path.basename(file_path)
-        self.logger.info(f"Context Menu: Save Pipeline requested for '{file_name}'. (Not implemented yet)")
+        cached_data = self._data_cache.get(file_path)
+
+        cached_data = self._data_cache.get(file_path)
+        if not cached_data:
+            self.logger.error(f"Cannot save pipeline, data not found: {file_name}")
+            return
+        
+        pipeline_json = cached_data.get_full_pipeline_json()
+
+        save_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Save Pipeline Configuration", 
+            f"pipeline_{file_name}.json", 
+            "JSON Files (*.json)"
+        )
+
+        if not save_path:
+            return
+        
+        writer = PipelineWriter()
+        result = writer.write(save_path, pipeline_json)
+
+        if result.get("status"):
+            self.logger.info(f"Pipeline saved successfully to: {save_path}")
+            self.statusBar().showMessage("Pipeline saved!", 3000)
+        else:
+            self.logger.error(f"Failed to save pipeline: {result.get('error')}")
+            QMessageBox.critical(self, "Error", f"Could not save pipeline:\n{result.get('error')}")
 
     def _handle_save_full_metadata(self, file_path: str):
         file_name = os.path.basename(file_path)
