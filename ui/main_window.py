@@ -4,8 +4,12 @@ from PyQt5.QtWidgets import (
     QMessageBox,
 )
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
+from core.layer_context import LayerContext, PipelineStage
 from ui.data_sources_panel import DataSourcesPanel
+from core.pipeline_builder import PipelineBuilder
 from ui.tab_viewers import GISMapView, ThreeDView
+from ui.filter_dialog import FilterParamsDialog
+from core.filter_worker import FilterWorker
 from ui.metadata_panel import MetadataPanel
 from ui.toolbox_panel import ToolboxPanel
 from data.data_handler import IDataReader
@@ -14,7 +18,6 @@ from PyQt5.QtCore import Qt, QThread
 from core.logger import Logger
 from typing import Optional
 import os
-
 
 class MainWindow(QMainWindow):
 
@@ -190,7 +193,7 @@ class MainWindow(QMainWindow):
             self.logger.error(f"Cannot zoom, data not found in cache: {file_name}")
             return
         
-        self.map_view.draw_bbox(cached_data["bounds"])
+        self.map_view.draw_bbox(cached_data.bounds)
         self.logger.info(f"Zoomed Map View to BBox of '{file_name}'.")
 
     def _handle_export_layer(self, file_path: str):
@@ -278,12 +281,11 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"File '{os.path.basename(file_path)}' loaded successfully!", 5000)
         file_name = os.path.basename(file_path)
         
-        self._data_cache[file_path] = {
-            "bounds":bounds,
-            "full_metadata": full_metadata,
-            "summary_metadata": summary_metadata,
-            "sample_data": sample_data
-        }
+        context = LayerContext(file_path, summary_metadata)
+        context.current_render_data = sample_data
+        context.bounds = bounds
+        
+        self._data_cache[file_path] = context
 
         self.data_sources_panel.add_file(file_path, file_name)
         
@@ -291,14 +293,114 @@ class MainWindow(QMainWindow):
 
     def _handle_reader_error(self, error_message: str):
         self.progressBar.hide()
-        self.statusBar().showMessage("ERROR: File reading failed.", 5000)
-        self.logger.error(error_message)
+        self.statusBar().showMessage("HATA: İşlem başarısız.", 5000)
+        self.logger.error(error_message) # Log paneline bas
+        print(f"APP ERROR: {error_message}")
 
     def _setup_toolbox_panel(self): 
         self.toolbox_dock = QDockWidget("Toolbox", self)
         self.toolbox_panel = ToolboxPanel()
-        self.toolbox_dock.setWidget(self.toolbox_panel) 
+        self.toolbox_dock.setWidget(self.toolbox_panel)
+
+        self.toolbox_panel.tool_selected.connect(self._handle_tool_selection)
+
         self.addDockWidget(Qt.RightDockWidgetArea, self.toolbox_dock)
+
+    def _handle_tool_selection(self, tool_name:str):
+        current_file = self.data_sources_panel.get_selected_file_path()
+
+        if not current_file or current_file not in self._data_cache:
+            self.logger.warning("Please select a layer from data sources first.")
+            return
+        
+        context: LayerContext = self._data_cache[current_file]
+
+        default_params = PipelineBuilder.get_default_params(tool_name)
+
+        dialog = FilterParamsDialog(tool_name, default_params, self)
+        if dialog.exec_():
+            user_params = dialog.get_params()
+
+            new_stage = PipelineBuilder.create_stage(tool_name, user_params)
+
+            if not new_stage:
+                self.logger.error(f"Could not build stage for {tool_name}")
+                return
+            
+            current_pipeline = context.get_full_pipeline_json()
+            current_pipeline.append(new_stage.config)
+
+            self.logger.info(f"Running filter: {new_stage.display_text}...")
+            
+            self._start_filter_worker(current_file, current_pipeline, new_stage)
+    
+    def _start_filter_worker(self, file_path, pipeline_config, stage_object):
+        print("DEBUG: _start_filter_worker metoduna girildi.")
+        
+        self.progressBar.show()
+        self.statusBar().showMessage("Filtre uygulanıyor...", 0)
+        
+        # --- GÜVENLİ KONTROL BLOĞU (DÜZELTME BURADA) ---
+        if hasattr(self, 'filter_thread') and self.filter_thread is not None:
+            try:
+                # Eğer nesne silindiyse burada RuntimeError verir, except'e düşeriz.
+                # Eğer silinmediyse ve hala çalışıyorsa durdururuz.
+                if self.filter_thread.isRunning():
+                    self.logger.warning("Önceki işlem bitmeden yenisi başlatıldı, bekleniyor...")
+                    self.filter_thread.quit()
+                    self.filter_thread.wait()
+            except RuntimeError:
+                # Nesne zaten C++ tarafından silinmiş (deleted).
+                # Yapacak bir şey yok, güvenle üzerine yeni thread yazabiliriz.
+                pass
+        # -----------------------------------------------
+
+        self.filter_thread = QThread()
+        self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object)
+        
+        self.filter_worker.moveToThread(self.filter_thread)
+        
+        # Thread başladığında Worker'ın 'run' metodunu çalıştır
+        self.filter_thread.started.connect(self.filter_worker.run)
+        
+        # BAĞLANTILAR
+        self.filter_worker.finished.connect(self._handle_filter_success) 
+        self.filter_worker.error.connect(self._handle_reader_error)      
+        self.filter_worker.progress.connect(self._handle_progress)
+        
+        # Temizlik
+        self.filter_worker.finished.connect(self.filter_thread.quit)
+        self.filter_worker.finished.connect(self.filter_worker.deleteLater)
+        self.filter_thread.finished.connect(self.filter_thread.deleteLater)
+        
+        print("DEBUG: Thread başlatılıyor...")
+        self.filter_thread.start()
+        print("DEBUG: Thread start komutu verildi.")
+
+    def _handle_filter_success(self, file_path, result_data, stage_object:PipelineStage):
+        self.progressBar.hide()
+        self.statusBar().showMessage("Filter applied successfully.", 3000)
+
+        if file_path not in self._data_cache:
+            return
+        
+        context: LayerContext = self._data_cache[file_path]
+        context.add_stage(stage_object)
+        context.current_render_data = result_data
+
+        self.data_sources_panel.add_stage_node(
+            file_path=file_path,
+            stage_name=stage_object.name,
+            stage_details=stage_object.display_text.replace(stage_object.name, "").strip("()")
+        )
+
+        self.three_d_view.render_point_cloud(
+            result_data["x"], 
+            result_data["y"], 
+            result_data["z"]
+        )
+
+        self.logger.info(f"Stage added: {stage_object.display_text}. Points: {result_data['count']}")
 
     def _create_status_bar(self):
         self.statusBar()
@@ -466,7 +568,7 @@ class MainWindow(QMainWindow):
             self.metadata_panel.clear_metadata() 
             return
         
-        summary_metadata = cached_data["summary_metadata"]
+        summary_metadata = cached_data.metadata
 
         if summary_metadata.get("status"):
             self.metadata_panel.update_metadata(file_name, summary_metadata)
@@ -485,10 +587,11 @@ class MainWindow(QMainWindow):
             self.logger.warning(f"Cannot render views, data not found in cache: {file_path}")
             return
         
-        self.map_view.draw_bbox(cached_data["bounds"])
+        self.map_view.draw_bbox(cached_data.bounds)
 
-        if cached_data["sample_data"].get("status") is True:
-            sample_data = cached_data["sample_data"]
+        sample_data = cached_data.current_render_data
+
+        if sample_data and "x" in sample_data:
             x = sample_data.get("x")
             y = sample_data.get("y")
             z = sample_data.get("z")

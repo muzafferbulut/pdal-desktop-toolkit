@@ -22,6 +22,9 @@ class DataSourcesPanel(QWidget):
         self.data_tree = self._setup_tree_widget()
         self.layout.addWidget(self.data_tree)
 
+        # dosya yollarını ve uygulanan filtreleri tutacak
+        self.layer_items = {}
+
     def _setup_tree_widget(self) -> QTreeWidget:
         tree = QTreeWidget()
         tree.setHeaderHidden(True)
@@ -30,6 +33,12 @@ class DataSourcesPanel(QWidget):
         tree.setContextMenuPolicy(Qt.CustomContextMenu)
         tree.customContextMenuRequested.connect(self._show_context_menu)
         return tree
+    
+    def get_selected_file_path(self) -> Optional[str]:
+        item = self.data_tree.currentItem()
+        if item:
+            return item.data(0, Qt.UserRole)
+        return None
     
     def _show_context_menu(self, position):
         item = self.data_tree.itemAt(position)
@@ -74,21 +83,47 @@ class DataSourcesPanel(QWidget):
             self.file_double_clicked.emit(file_path, file_name)
 
     def add_file(self, file_path:str, file_name:str):
+        
+        if file_path in self.layer_items:
+            return
+                
         file_icon = QIcon("ui/resources/icons/file.png")
-        new_item = QTreeWidgetItem(self.data_tree, [file_name])
-        new_item.setIcon(0, file_icon)
-        new_item.setData(0, Qt.UserRole, file_path)
-        self.data_tree.addTopLevelItem(new_item)
-        self.data_tree.setCurrentItem(new_item)
+
+        root_item = QTreeWidgetItem(self.data_tree, [file_name])
+        root_item.setIcon(0, file_icon)
+        root_item.setData(0, Qt.UserRole, file_path)
+        root_item.setData(0, Qt.UserRole + 1, "root")
+        self.data_tree.addTopLevelItem(root_item)
+
+        self.layer_items[file_path] = root_item
+
+        self.data_tree.setCurrentItem(root_item)
         self.file_single_clicked.emit(file_path, file_name)
 
+    def add_stage_node(self, file_path:str, stage_name:str, stage_details:str):
+        parent_item = self.layer_items.get(file_path)
+
+        if not parent_item:
+            return
+        
+        try:
+            stage_icon = QIcon("ui/resources/icons/gear.png")
+        except:
+            stage_icon = QIcon()
+        
+        display_text = f"{stage_name}"
+        if stage_details:
+            display_text += f" ({stage_details})"
+
+        child_item = QTreeWidgetItem(parent_item, [display_text])
+        child_item.setIcon(0, stage_icon)
+        child_item.setData(0, Qt.UserRole, file_path)
+        child_item.setData(0, Qt.UserRole + 1, "stage")
+        parent_item.setExpanded(True)
+
     def remove_layer(self, file_path:str):
-        iterator = QTreeWidgetItemIterator(self.data_tree)
-        while iterator.value():
-            item = iterator.value()
-            if item.data(0, Qt.UserRole) == file_path:
-                root = item.parent() or self.data_tree.invisibleRootItem()
-                root.removeChild(item)
-                del item
-                break
-            iterator +=1
+        if file_path in self.layer_items:
+            item = self.layer_items[file_path]
+            root = self.data_tree.invisibleRootItem()
+            root.removeChild(item)
+            del self.layer_items[file_path]
