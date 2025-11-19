@@ -31,9 +31,11 @@ class ToolboxPanel(QWidget):
             tool_icon = QIcon()
 
         categories = {
-            "Noise": ["Outlier", "Statistical"],
-            "Manipulation": ["VoxelGrid", "Sample", "Crop"],
-            "Engineering": ["Ground", "Mesh", "ApproximateDensity"]
+            "Data Management": ["Merge", "Splitter"],
+            "Pre-processing & Cleaning": ["Crop", "Decimation", "Outlier","ELM", "Range"],
+            "Classification & Analysis": ["CSF", "SMRF", "HAG","Normal","Cluster"],
+            "Georeferencing & Transforms": ["Reprojection", "Transformation"],
+            "Rasterization" : ["DSM", "DTM"]
         }
 
         for cat, tools in categories.items():
