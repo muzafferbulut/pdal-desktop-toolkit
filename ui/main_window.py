@@ -1,8 +1,5 @@
-from PyQt5.QtWidgets import (
-    QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,
-    QTabWidget,QFileDialog,QProgressBar,QApplication,
-    QMessageBox,
-)
+from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,
+    QTabWidget,QFileDialog,QProgressBar,QApplication,QMessageBox,)
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from core.layer_context import LayerContext, PipelineStage
 from ui.data_sources_panel import DataSourcesPanel
@@ -17,6 +14,7 @@ from core.read_worker import ReaderWorker
 from PyQt5.QtCore import Qt, QThread
 from core.logger import Logger
 from typing import Optional
+import copy
 import os
 
 class MainWindow(QMainWindow):
@@ -293,9 +291,8 @@ class MainWindow(QMainWindow):
 
     def _handle_reader_error(self, error_message: str):
         self.progressBar.hide()
-        self.statusBar().showMessage("HATA: İşlem başarısız.", 5000)
-        self.logger.error(error_message) # Log paneline bas
-        print(f"APP ERROR: {error_message}")
+        self.statusBar().showMessage("Error: The process failed.", 5000)
+        self.logger.error(error_message)
 
     def _setup_toolbox_panel(self): 
         self.toolbox_dock = QDockWidget("Toolbox", self)
@@ -318,6 +315,7 @@ class MainWindow(QMainWindow):
         default_params = PipelineBuilder.get_default_params(tool_name)
 
         dialog = FilterParamsDialog(tool_name, default_params, self)
+        
         if dialog.exec_():
             user_params = dialog.get_params()
 
@@ -327,55 +325,48 @@ class MainWindow(QMainWindow):
                 self.logger.error(f"Could not build stage for {tool_name}")
                 return
             
-            current_pipeline = context.get_full_pipeline_json()
-            current_pipeline.append(new_stage.config)
+            base_pipeline = context.get_full_pipeline_json()
+            base_pipeline.append(new_stage.config)
 
             self.logger.info(f"Running filter: {new_stage.display_text}...")
             
-            self._start_filter_worker(current_file, current_pipeline, new_stage)
+            vis_pipeline = copy.deepcopy(base_pipeline)
+            vis_pipeline.append({
+                "type": "filters.decimation",
+                "step": 10
+            })
+            self._start_filter_worker(current_file, vis_pipeline, new_stage)
     
-    def _start_filter_worker(self, file_path, pipeline_config, stage_object):
-        print("DEBUG: _start_filter_worker metoduna girildi.")
-        
+    def _start_filter_worker(self, file_path, pipeline_config, stage_object):        
         self.progressBar.show()
-        self.statusBar().showMessage("Filtre uygulanıyor...", 0)
+        self.statusBar().showMessage("The filter is applied...", 0)
         
-        # --- GÜVENLİ KONTROL BLOĞU (DÜZELTME BURADA) ---
         if hasattr(self, 'filter_thread') and self.filter_thread is not None:
             try:
-                # Eğer nesne silindiyse burada RuntimeError verir, except'e düşeriz.
-                # Eğer silinmediyse ve hala çalışıyorsa durdururuz.
                 if self.filter_thread.isRunning():
-                    self.logger.warning("Önceki işlem bitmeden yenisi başlatıldı, bekleniyor...")
+                    self.logger.warning("The new one was started before the previous process was finished, waiting...")
                     self.filter_thread.quit()
                     self.filter_thread.wait()
             except RuntimeError:
-                # Nesne zaten C++ tarafından silinmiş (deleted).
-                # Yapacak bir şey yok, güvenle üzerine yeni thread yazabiliriz.
                 pass
-        # -----------------------------------------------
 
         self.filter_thread = QThread()
         self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object)
         
         self.filter_worker.moveToThread(self.filter_thread)
         
-        # Thread başladığında Worker'ın 'run' metodunu çalıştır
         self.filter_thread.started.connect(self.filter_worker.run)
         
-        # BAĞLANTILAR
+        # sinyalleri bağla
         self.filter_worker.finished.connect(self._handle_filter_success) 
         self.filter_worker.error.connect(self._handle_reader_error)      
         self.filter_worker.progress.connect(self._handle_progress)
         
-        # Temizlik
+        # temizle
         self.filter_worker.finished.connect(self.filter_thread.quit)
         self.filter_worker.finished.connect(self.filter_worker.deleteLater)
         self.filter_thread.finished.connect(self.filter_thread.deleteLater)
-        
-        print("DEBUG: Thread başlatılıyor...")
         self.filter_thread.start()
-        print("DEBUG: Thread start komutu verildi.")
 
     def _handle_filter_success(self, file_path, result_data, stage_object:PipelineStage):
         self.progressBar.hide()
