@@ -2,7 +2,8 @@ from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWid
     QTabWidget,QFileDialog,QProgressBar,QApplication,QMessageBox,)
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from core.layer_context import LayerContext, PipelineStage
-from data.writers import PipelineWriter, LasWriter
+from data.writers import PipelineWriter
+from core.export_worker import ExportWorker
 from ui.data_sources_panel import DataSourcesPanel
 from core.pipeline_builder import PipelineBuilder
 from ui.tab_viewers import GISMapView, ThreeDView
@@ -197,7 +198,62 @@ class MainWindow(QMainWindow):
 
     def _handle_export_layer(self, file_path: str):
         file_name = os.path.basename(file_path)
-        self.logger.info(f"Context Menu: Export Layer requested for '{file_name}'. (Not implemented yet)")
+        cached_data = self._data_cache.get(file_path)
+
+        if not cached_data:
+            self.logger.error(f"Cannot export, data not found: {file_name}")
+            return
+        
+        pipeline_config = cached_data.get_full_pipeline_json()
+
+        save_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Export Layer", 
+            f"export_{file_name}", 
+            "LAS Files (*.las);;LAZ Files (*.laz)"
+        )
+
+        if not save_path:
+            return
+        
+        self.logger.info(f"Starting export for '{file_name}' to '{save_path}'...")
+        self._start_export_worker(save_path, pipeline_config)
+
+    def _start_export_worker(self, save_path, pipeline_config):        
+        self.progressBar.show()
+        self.statusBar().showMessage("Exporting layer... Please wait.", 0)
+
+        if hasattr(self, 'export_thread') and self.export_thread is not None:
+            try:
+                if self.export_thread.isRunning():
+                    self.logger.warning("Previous export still running. Stopping it.")
+                    self.export_thread.quit()
+                    self.export_thread.wait()
+            except RuntimeError:
+                pass
+
+        self.export_thread = QThread()
+        self.export_worker = ExportWorker(save_path, pipeline_config)
+        
+        self.export_worker.moveToThread(self.export_thread)
+        
+        self.export_thread.started.connect(self.export_worker.run)
+        
+        self.export_worker.finished.connect(self._handle_export_success)
+        self.export_worker.error.connect(self._handle_reader_error)
+        
+        # Temizlik
+        self.export_worker.finished.connect(self.export_thread.quit)
+        self.export_worker.finished.connect(self.export_worker.deleteLater)
+        self.export_thread.finished.connect(self.export_thread.deleteLater)
+        
+        self.export_thread.start()
+
+    def _handle_export_success(self, message: str):
+        self.progressBar.hide()
+        self.statusBar().showMessage("Export completed.", 5000)
+        self.logger.info(message.replace("\n", " "))
+        QMessageBox.information(self, "Export Successful", message)
 
     def _handle_save_pipeline(self, file_path: str):
         file_name = os.path.basename(file_path)

@@ -1,6 +1,7 @@
 from data.data_handler import IDataWriter
 from typing import Any, Dict
 import json
+import pdal
 import os
 
 class PipelineWriter(IDataWriter):
@@ -21,4 +22,17 @@ class PipelineWriter(IDataWriter):
 class LasWriter(IDataWriter):
     
     def write(self, file_path:str, data:list, **kwargs) -> Dict[str, Any]:
-        pass
+        try:
+            pipeline_config = data.copy()
+            pipeline_config.append({
+                "type":"writers.las",
+                "filename":file_path,
+                "extra_dims":"all"
+            })
+
+            pipeline = pdal.Pipeline(json.dumps(pipeline_config))
+            count = pipeline.execute()
+            return {"status": True, "count": count, "path": file_path}
+        
+        except Exception as e:
+            return {"status": False, "error": f"Export failed: {str(e)}"}
