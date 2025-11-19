@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWid
     QTabWidget,QFileDialog,QProgressBar,QApplication,QMessageBox,)
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from core.layer_context import LayerContext, PipelineStage
-from data.writers import PipelineWriter, MetadataWriter, LasWriter
+from data.writers import PipelineWriter, MetadataWriter
 from core.export_worker import ExportWorker
 from ui.data_sources_panel import DataSourcesPanel
 from core.pipeline_builder import PipelineBuilder
