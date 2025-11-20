@@ -2,6 +2,8 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTreeWidget, QTreeWidgetItem
 from PyQt5.QtCore import Qt, QSize, pyqtSignal
 from PyQt5.QtGui import QIcon
 from typing import Optional
+from core.tools.registry import ToolRegistry
+import core.tools.implementations
 
 class ToolboxPanel(QWidget):
     
@@ -18,11 +20,14 @@ class ToolboxPanel(QWidget):
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setIconSize(QSize(18,18))
-        self._populate_tree()
+        self._populate_tree_dynamic()
         self.layout.addWidget(self.tree)
         self.tree.itemClicked.connect(self._on_tree_item_clicked)
 
-    def _populate_tree(self):
+    def _populate_tree_dynamic(self):
+        """
+        ToolRegistry'deki kayıtlı araçları okur ve ağaç yapısını oluşturur.
+        """
         try:
             cat_icon = QIcon("ui/resources/icons/toolbox.png")
             tool_icon = QIcon("ui/resources/icons/tool.png")
@@ -30,25 +35,32 @@ class ToolboxPanel(QWidget):
             cat_icon = QIcon()
             tool_icon = QIcon()
 
-        categories = {
-            "Data Management": ["Merge", "Splitter"],
-            "Pre-processing & Cleaning": ["Crop", "Decimation", "Outlier","ELM", "Range"],
-            "Classification & Analysis": ["CSF", "SMRF", "HAG","Normal","Cluster"],
-            "Georeferencing & Transforms": ["Reprojection", "Transformation"],
-            "Rasterization" : ["DSM", "DTM"]
-        }
+        registered_tools = ToolRegistry.get_all_tools()
 
-        for cat, tools in categories.items():
-            cat_item = QTreeWidgetItem([cat])
+        groups = {}
+        
+        for name, tool_cls in registered_tools.items():
+            category = getattr(tool_cls, "group", "Other")
+            
+            if category not in groups:
+                groups[category] = []
+            groups[category].append(tool_cls)
+
+        for category_name, tools_in_cat in groups.items():
+            cat_item = QTreeWidgetItem([category_name])
             cat_item.setIcon(0, cat_icon)
             cat_item.setData(0, Qt.UserRole, "category")
             self.tree.addTopLevelItem(cat_item)
             cat_item.setExpanded(True) 
-            for t in tools:
-                tool_item = QTreeWidgetItem([t])
+
+            for tool_cls in tools_in_cat:
+                tool_name = tool_cls.name
+                
+                tool_item = QTreeWidgetItem([tool_name])
                 tool_item.setIcon(0, tool_icon)
-                tool_item.setData(0, Qt.UserRole, "tool") 
-                tool_item.setData(0, Qt.UserRole + 1, f"filters.{t.lower()}") 
+                tool_item.setData(0, Qt.UserRole, "tool")
+                tool_item.setData(0, Qt.UserRole + 1, tool_name) 
+                
                 cat_item.addChild(tool_item)
 
     def _on_tree_item_clicked(self, item, column):
@@ -57,4 +69,3 @@ class ToolboxPanel(QWidget):
         else:  
             tool_name = item.text(0)
             self.tool_selected.emit(tool_name)
-            pass
