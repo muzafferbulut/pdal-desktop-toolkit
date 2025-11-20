@@ -49,3 +49,7 @@ class LayerContext:
                 pipeline.append(stage.config)
         
         return pipeline
+    
+    def remove_stage(self, index:int):
+        if 0 <= index < len(self.stages):
+            del self.stages[index]

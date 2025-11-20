@@ -173,6 +173,7 @@ class MainWindow(QMainWindow):
         self.data_sources_panel.save_pipeline_requested.connect(self._handle_save_pipeline)
         self.data_sources_panel.save_full_metadata_requested.connect(self._handle_save_full_metadata)
         self.data_sources_panel.remove_layer_requested.connect(self._handle_remove_layer)
+        self.data_sources_panel.remove_stage_requested.connect(self._handle_remove_stage)
 
         self.data_sources_dock = QDockWidget("Data Sources", self)
         self.data_sources_dock.setWidget(self.data_sources_panel)
@@ -184,6 +185,25 @@ class MainWindow(QMainWindow):
         self.metadata_dock.setWidget(self.metadata_panel)
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
+
+    def _handle_remove_stage(self, file_path: str, stage_index: int):
+        if file_path not in self._data_cache:
+            return
+
+        context = self._data_cache[file_path]
+
+        context.remove_stage(stage_index)
+        self.logger.info(f"Stage at index {stage_index} removed. Re-calculating pipeline...")
+
+        new_pipeline_config = context.get_full_pipeline_json()
+
+        vis_pipeline = copy.deepcopy(new_pipeline_config)
+        vis_pipeline.append({
+            "type": "filters.decimation",
+            "step": 10
+        })
+
+        self._start_filter_worker(file_path, vis_pipeline, stage_object=None)
 
     def _handle_zoom_to_bbox(self, file_path: str):
         file_name = os.path.basename(file_path)
@@ -444,7 +464,7 @@ class MainWindow(QMainWindow):
             })
             self._start_filter_worker(current_file, vis_pipeline, new_stage)
     
-    def _start_filter_worker(self, file_path, pipeline_config, stage_object):        
+    def _start_filter_worker(self, file_path, pipeline_config, stage_object:Optional[PipelineStage] = None):        
         self.progressBar.show()
         self.statusBar().showMessage("The filter is applied...", 0)
         
@@ -475,30 +495,33 @@ class MainWindow(QMainWindow):
         self.filter_thread.finished.connect(self.filter_thread.deleteLater)
         self.filter_thread.start()
 
-    def _handle_filter_success(self, file_path, result_data, stage_object:PipelineStage):
+    def _handle_filter_success(self, file_path, result_data, stage_object: Optional[PipelineStage]):
         self.progressBar.hide()
-        self.statusBar().showMessage("Filter applied successfully.", 3000)
+        self.statusBar().showMessage("Process completed.", 3000)
 
         if file_path not in self._data_cache:
             return
         
-        context: LayerContext = self._data_cache[file_path]
-        context.add_stage(stage_object)
+        context: LayerContext = self._data_cache[file_path]        
         context.current_render_data = result_data
 
-        self.data_sources_panel.add_stage_node(
-            file_path=file_path,
-            stage_name=stage_object.name,
-            stage_details=stage_object.display_text.replace(stage_object.name, "").strip("()")
-        )
+        if stage_object:
+            context.add_stage(stage_object)
+            self.data_sources_panel.add_stage_node(
+                file_path=file_path,
+                stage_name=stage_object.name,
+                stage_details=stage_object.display_text.replace(stage_object.name, "").strip("()")
+            )
+            self.logger.info(f"Stage added: {stage_object.name}")
+        
+        else:
+            self.logger.info("Pipeline refreshed (Stage removed).")
 
         self.three_d_view.render_point_cloud(
             result_data["x"], 
             result_data["y"], 
             result_data["z"]
         )
-
-        self.logger.info(f"Stage added: {stage_object.display_text}. Points: {result_data['count']}")
 
     def _create_status_bar(self):
         self.statusBar()
