@@ -28,7 +28,6 @@ class FilterParamsDialog(QDialog):
         
         self.setWindowTitle(f"Configure {self.tool_cls.name}")
         self.setMinimumWidth(450)
-        self._apply_stylesheet()
         self._setup_ui()
 
     def _setup_ui(self):
@@ -84,15 +83,6 @@ class FilterParamsDialog(QDialog):
         button_box.button(QDialogButtonBox.Ok).setText("Apply")
         
         main_layout.addWidget(button_box)
-
-    def _apply_stylesheet(self):
-        self.setStyleSheet("""
-            QDialog { background-color: #ffffff; }
-            QLabel { color: #333333; font-family: 'Segoe UI'; }
-            QLineEdit, QSpinBox, QDoubleSpinBox {padding: 6px; border: 1px solid #cccccc;border-radius: 4px; background-color: #f9f9f9;}
-            QLineEdit:focus { border: 1px solid #0078d4; background-color: #ffffff; }
-            QGroupBox { border: 1px solid #e0e0e0; border-radius: 6px; margin-top: 20px; font-weight: bold; }
-        """)
 
     def _create_widget_for_value(self, value):
 

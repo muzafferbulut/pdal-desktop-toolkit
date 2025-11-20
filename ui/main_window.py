@@ -3,11 +3,12 @@ from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWid
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
 from core.layer_context import LayerContext, PipelineStage
 from data.writers import PipelineWriter, MetadataWriter
-from core.export_worker import ExportWorker
 from ui.data_sources_panel import DataSourcesPanel
 from core.pipeline_builder import PipelineBuilder
 from ui.tab_viewers import GISMapView, ThreeDView
 from ui.filter_dialog import FilterParamsDialog
+from core.themes.manager import ThemeManager
+from core.export_worker import ExportWorker
 from core.filter_worker import FilterWorker
 from ui.metadata_panel import MetadataPanel
 from ui.toolbox_panel import ToolboxPanel
@@ -21,9 +22,7 @@ import os
 
 class MainWindow(QMainWindow):
 
-    def __init__(
-        self, app_logger: Logger, reader: IDataReader, parent: Optional[QWidget] = None
-    ):
+    def __init__(self, app_logger: Logger, reader: IDataReader, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.logger = app_logger
         self.reader = reader
@@ -45,7 +44,8 @@ class MainWindow(QMainWindow):
         self._setup_central_widget()
         self._setup_toolbox_panel()
         self._create_status_bar()
-        self._apply_standard_style()
+        
+        ThemeManager.apply_theme("Light Theme")
 
         menu_bar = self.menuBar()
 
@@ -70,6 +70,12 @@ class MainWindow(QMainWindow):
 
         # view menü actions
         self.view_menu = menu_bar.addMenu("View")
+
+        self.themes_menu = self.view_menu.addMenu("Themes")
+        self._populate_themes_menu()
+
+        self.view_menu.addSeparator()
+
         self.view_menu.addAction(self.data_sources_dock.toggleViewAction())
         self.view_menu.addAction(self.metadata_dock.toggleViewAction())
         self.view_menu.addAction(self.toolbox_dock.toggleViewAction())
@@ -97,6 +103,16 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_save_as)
         self.file_toolbar.addAction(self.action_save_pipeline)
         self.file_toolbar.addSeparator()
+
+    def _populate_themes_menu(self):
+        for name in ThemeManager.get_theme_names():
+            action = QAction(name, self)
+            action.triggered.connect(lambda checked=False, n=name: self._change_theme(n))
+            self.themes_menu.addAction(action)
+
+    def _change_theme(self, theme_name: str):
+        self.logger.info(f"Changing theme to: {theme_name}")
+        ThemeManager.apply_theme(theme_name)
 
     def _reset_layout(self):
 
@@ -532,150 +548,6 @@ class MainWindow(QMainWindow):
         self.progressBar.setFixedWidth(150)
         self.progressBar.hide()
         self.statusBar().addPermanentWidget(self.progressBar)
-
-    def _apply_standard_style(self):
-
-        minimal_stylesheet = """
-        * {
-            background-color: #ffffff;
-            color: #333333;
-            border: none;
-            outline: none;
-        }
-
-        QPushButton {
-            background-color: #f2f2f2;
-            border: 1px solid #ccc;
-            padding: 5px 14px;
-            border-radius: 4px;
-            font-family: Segoe UI, sans-serif;
-            font-size: 9pt;
-        }
-        
-        QPushButton:hover {
-            background-color: #e6e6e6;
-        }
-        
-        QPushButton:pressed {
-            background-color: #d9d9d9;
-        }
-            
-        QMainWindow {
-            background-color: #f8f9fa;
-            border: 1px solid #e9ecef;
-        }
-        
-        QDockWidget {
-            background-color: #ffffff;
-            border: 1px solid #dee2e6;
-            margin: 2px;
-        }
-
-        QDockWidget::title {
-            background-color: #f1f3f4;
-            color: #333333;
-            padding: 9px 12px;
-            font-weight: 500;
-            border-bottom: 2px solid #0078d4; 
-        }
-
-        QTabWidget::pane {
-            border: 1px solid #dee2e6;
-            background-color: #ffffff;
-        }
-        
-        QTabBar::tab {
-            background-color: #f8f9fa;
-            color: #666666;
-            padding: 8px 16px;
-            margin-right: 1px;
-            border: 1px solid #dee2e6;
-            border-bottom: none;
-        }
-        
-        QTabBar::tab:selected {
-            background-color: #ffffff;
-            color: #333333;
-            border-bottom: 2px solid #0078d4;
-        }
-        
-        QToolBar {
-            background-color: #ffffff;
-            border-bottom: 1px solid #dee2e6;
-            spacing: 6px;
-            padding: 6px;
-        }
-        
-        QToolButton {
-            background: transparent;
-            border: 1px solid transparent;
-            padding: 6px;
-            border-radius: 4px;
-        }
-        
-        QToolButton:hover {
-            background-color: #e9ecef;
-            border: 1px solid #dee2e6;
-        }
-
-        QMenuBar {
-            background-color: #ffffff;
-            border-bottom: 1px solid #dee2e6;
-        }
-        
-        QMenuBar::item {
-            padding: 8px 12px;
-            background-color: transparent;
-        }
-        
-        QMenuBar::item:selected {
-            background-color: #e9ecef;
-        }
-        
-        QMenu {
-            border: 1px solid #dee2e6;
-            background-color: #ffffff;
-        }
-        
-        QMenu::item:selected {
-            background-color: #e9ecef;
-        }
-        
-        QTextEdit, QLineEdit, QPlainTextEdit, QTreeWidget {
-            background-color: #ffffff;
-            color: #333333;
-            border: 1px solid #dee2e6;
-            border-radius: 3px;
-            padding: 6px 8px;
-            selection-background-color: #e9ecef;
-        }
-        
-        QLabel {
-            color: #333333;
-            background: transparent;
-        }
-        
-        QStatusBar {
-            background-color: #ffffff;
-            color: #666666;
-            border-top: 1px solid #dee2e6;
-        }
-
-        QProgressBar {
-            border: 1px solid #0078d4;
-            border-radius: 4px;
-            text-align: center;
-            height: 18px;
-            background-color: #f1f3f4;
-        }
-        QProgressBar::chunk {
-            background-color: #0078d4;
-            border-radius: 3px;
-        }
-        """
-        self.setStyleSheet(minimal_stylesheet)
-        app_font = QFont("Segoe UI", 9)
-        QApplication.setFont(app_font)
 
     def _on_file_single_clicked(self, file_path: str, file_name: str):
         if not file_path:
