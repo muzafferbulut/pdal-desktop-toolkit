@@ -421,10 +421,7 @@ class MainWindow(QMainWindow):
             return
         
         context: LayerContext = self._data_cache[current_file]
-
-        default_params = PipelineBuilder.get_default_params(tool_name)
-
-        dialog = FilterParamsDialog(tool_name, default_params, self)
+        dialog = FilterParamsDialog(tool_name, self)
         
         if dialog.exec_():
             user_params = dialog.get_params()

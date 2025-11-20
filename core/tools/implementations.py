@@ -6,6 +6,10 @@ from typing import Dict, Any
 class OutlierFilter(BaseTool):
     name = "Outlier Filter"
     group = "Clean Data"
+    description = (
+        "Removes noise using statistical analysis (Mean/Stdev). "
+        "Useful for cleaning up isolated points in the cloud."
+    )
 
     def get_default_params(self) -> Dict[str, Any]:
         return {"mean_k": 8, "multiplier":2.2}
