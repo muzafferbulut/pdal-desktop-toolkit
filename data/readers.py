@@ -1,4 +1,5 @@
 from data.data_handler import IDataReader
+from core.render_utils import RenderUtils
 from core.geo_utils import GeoUtils
 from typing import Dict, Any
 import pdal
@@ -97,18 +98,19 @@ class LasLazReader(IDataReader):
 
         try:
             raw_data = self._render_pipeline.arrays[0]
-            sample_data = raw_data
-            x = sample_data["X"]
-            y = sample_data["Y"]
-            z = sample_data["Z"]
+            raw_x = raw_data["X"]
+            raw_y = raw_data["Y"]
+            raw_z = raw_data["Z"]
+            
+            vis_x, vis_y, vis_z = RenderUtils.downsample(raw_x, raw_y, raw_z)
+            
             return {
                 "status": True,
-                "x": x.tolist(),
-                "y": y.tolist(),
-                "z": z.tolist(),
-                "count": len(x),
+                "x": vis_x,
+                "y": vis_y,
+                "z": vis_z,
+                "count": len(raw_x),
             }
-
         except Exception as e:
             return {"status": False, "error": f"Error during data sampling : {e}"}
 

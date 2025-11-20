@@ -1,4 +1,5 @@
 from PyQt5.QtCore import QObject, pyqtSignal
+from core.render_utils import RenderUtils
 import traceback
 import pdal
 import json
@@ -22,10 +23,18 @@ class FilterWorker(QObject):
             count = pipeline.execute()
             self.progress.emit(80)
             arrays = pipeline.arrays[0]
+
+            # ham data
+            raw_x = arrays["X"]
+            raw_y = arrays["Y"]
+            raw_z = arrays["Z"]
+
+            vis_x, vis_y, vis_z = RenderUtils.downsample(raw_x, raw_y, raw_z)
+
             result_data = {
-                "x": arrays["X"].tolist(),
-                "y": arrays["Y"].tolist(),
-                "z": arrays["Z"].tolist(),
+                "x": vis_x,
+                "y": vis_y,
+                "z": vis_z,
                 "count": count
             }
             self.progress.emit(100)
