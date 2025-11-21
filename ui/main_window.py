@@ -191,6 +191,7 @@ class MainWindow(QMainWindow):
         self.data_sources_panel.save_full_metadata_requested.connect(self._handle_save_full_metadata)
         self.data_sources_panel.remove_layer_requested.connect(self._handle_remove_layer)
         self.data_sources_panel.remove_stage_requested.connect(self._handle_remove_stage)
+        self.data_sources_panel.style_changed_requested.connect(self._handle_style_change)
 
         self.data_sources_dock = QDockWidget("Data Sources", self)
         self.data_sources_dock.setWidget(self.data_sources_panel)
@@ -202,6 +203,29 @@ class MainWindow(QMainWindow):
         self.metadata_dock.setWidget(self.metadata_panel)
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
+
+    def _handle_style_change(self, file_path: str, style_name:str):
+        context = self._data_cache.get(file_path)
+        if not context or not context.current_render_data:
+            return
+        
+        data = context.current_render_data
+        file_name = os.path.basename(file_path)
+
+        if style_name == "Intensity" and "intensity" not in data:
+            self.logger.warning(f"'{file_name}' does not contain Intensity channel.")
+            return
+
+        if style_name == "RGB" and "red" not in data:
+            self.logger.warning(f"'{file_name}' does not contain RGB channels.")
+            return
+
+        if style_name == "Classification" and "classification" not in data:
+            self.logger.warning(f"'{file_name}' does not contain Classification channel.")
+            return
+        
+        self.three_d_view.render_point_cloud(data, color_by=style_name)
+        self.logger.info(f"Updated style for '{file_name}' to {style_name}.")
 
     def _handle_remove_stage(self, file_path: str, stage_index: int):
         if file_path not in self._data_cache:
@@ -574,24 +598,21 @@ class MainWindow(QMainWindow):
 
     def _on_file_double_clicked(self, file_path: str, file_name:str):
         if not file_path:
-            self.logger.warning(f"Double click ignored: No file path for {file_name}")
             return
         
         cached_data = self._data_cache.get(file_path)
-
         if not cached_data:
-            self.logger.warning(f"Cannot render views, data not found in cache: {file_path}")
+            self.logger.warning(f"Data not found in cache: {file_path}")
             return
-        
-        self.map_view.draw_bbox(cached_data.bounds)
+
+        if cached_data.bounds and cached_data.bounds.get("status"):
+             self.map_view.draw_bbox(cached_data.bounds)
 
         sample_data = cached_data.current_render_data
 
         if sample_data and "x" in sample_data:
-            x = sample_data.get("x")
-            y = sample_data.get("y")
-            z = sample_data.get("z")
-            self.three_d_view.render_point_cloud(x, y, z)
+            self.three_d_view.render_point_cloud(sample_data)
         else:
-            self.logger.warning(f"Data sampling failed, cannot render 3D view for '{file_name}'.")
-            return
+            error_msg = sample_data.get("error", "Unknown error") if sample_data else "Data is None"
+            self.logger.error(f"3D Render Failed for '{file_name}': {error_msg}")
+            QMessageBox.warning(self, "Render Error", f"Could not render 3D view:\n{error_msg}")

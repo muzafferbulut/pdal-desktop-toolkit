@@ -64,54 +64,84 @@ class ThreeDView(QFrame):
         self.plotter.camera_position = "iso"
         self.plotter.show_axes()
 
-    def render_point_cloud(self, x, y, z):
-        if not len(x) or not len(y) or not len(z):
-            return
+    def render_point_cloud(self, data_dict: dict, color_by: str = "Elevation"):
+        """
+        data_dict: {x, y, z, intensity, red, green...}
+        color_by: 'Elevation', 'Intensity', 'RGB', 'Classification'
+        """
+        x = data_dict.get("x")
+        y = data_dict.get("y")
+        z = data_dict.get("z")
+
+        if x is None: return
 
         points = np.column_stack((x, y, z))
         point_cloud = pv.PolyData(points)
-        point_cloud["elevation"] = z
 
-        if self.point_actor:
-            try:
-                self.plotter.remove_actor(self.point_actor)
-            except Exception:
-                self.plotter.clear()
-            self.point_actor = None
+        point_cloud["Elevation"] = z
+
+        scalars = "Elevation"
+        rgb = False
+        cmap = "viridis"
+
+        if color_by == "Intensity" and "intensity" in data_dict:
+            point_cloud["Intensity"] = data_dict["intensity"]
+            scalars = "Intensity"
+            cmap = "gray"
+        
+        elif color_by == "Classification" and "classification" in data_dict:
+            point_cloud["Classification"] = data_dict["classification"]
+            scalars = "Classification"
+            cmap = "tab10"
+
+        elif color_by == "RGB" and "red" in data_dict:
+            r = data_dict["red"]
+            g = data_dict["green"]
+            b = data_dict["blue"]
+            
+            if r.max() > 255:
+                r = (r / r.max() * 255).astype(np.uint8)
+                g = (g / g.max() * 255).astype(np.uint8)
+                b = (b / b.max() * 255).astype(np.uint8)
+            
+            rgb_array = np.column_stack((r, g, b))
+            point_cloud.point_data["RGB"] = rgb_array
+            scalars = "RGB"
+            rgb = True
 
         self.plotter.clear()
         self.plotter.add_axes()
-        self.plotter.enable_anti_aliasing()
+
+        scalar_bar_args={
+            "title":None,
+            "vertical": True,
+            "position_x": 0.95,
+            "position_y": 0.06,
+            "height": 0.25,       
+            "width": 0.03,   
+            "label_font_size": 11
+        }
 
         try:
-
             self.point_actor = self.plotter.add_mesh(
                 point_cloud,
-                scalars="elevation",
+                scalars=None if rgb else scalars,
+                rgba=rgb, 
                 render_points_as_spheres=True,
-                point_size=2,
-                cmap="viridis",
-                scalar_bar_args={
-                    "title":None,
-                    "vertical": True,
-                    "position_x": 0.95,
-                    "position_y": 0.06,
-                    "height": 0.25,       
-                    "width": 0.03,   
-                    "label_font_size": 11
-                }
+                point_size=1,
+                cmap=cmap if not rgb else None,
+                scalar_bar_args=scalar_bar_args if not rgb else None
             )
+            
+            if rgb:
+                self.plotter.remove_scalar_bar()
 
             self.current_mesh = point_cloud
-
-        except Exception as e:
-            return
-
-        try:
             self.plotter.reset_camera()
             self.plotter.render()
+            
         except Exception as e:
-            return
+            print(f"Render error: {e}")
         
     def on_theme_change(self, theme):
         colors = theme.three_d_background
@@ -121,4 +151,3 @@ class ThreeDView(QFrame):
                 colors = colors['bottom'],
                 top = colors['top']
             )
-        text_color = "white" if "Dark" in theme.name or "Contrast" in theme.name else "black"

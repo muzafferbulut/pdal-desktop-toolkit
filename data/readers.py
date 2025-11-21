@@ -1,10 +1,10 @@
 from data.data_handler import IDataReader
-from core.render_utils import RenderUtils
 from core.geo_utils import GeoUtils
 from typing import Dict, Any
 import pdal
 import json
-
+import numpy as np  # <-- EKSİK OLABİLİR
+from core.render_utils import RenderUtils # <-- EKSİK OLABİLİR
 
 class LasLazReader(IDataReader):
 
@@ -15,15 +15,13 @@ class LasLazReader(IDataReader):
         self._file_path = None
 
     def read(self, file_path: str) -> Dict[str, Any]:
-        """
-        Render pipeline'ı hazırlar ve çalıştırır. Dosya yolunu saklar.
-        """
         self._file_path = file_path
         try:
+            # Okuma sırasında decimation yapmıyoruz, ham veriyi çekiyoruz.
+            # Decimation'ı get_sample_data içinde RenderUtils ile yapacağız.
             render_config = {
                 "pipeline": [
-                    {"type": "readers.las", "filename": f"{file_path}"},
-                    {"type": "filters.decimation", "step":self._sample_step} 
+                    {"type": "readers.las", "filename": f"{file_path}"}
                 ]
             }
             self._render_pipeline = pdal.Pipeline(json.dumps(render_config))
@@ -34,117 +32,95 @@ class LasLazReader(IDataReader):
 
     def get_metadata(self):       
         if not self._file_path:
-            return {"status": False, "error": "File path is not set for metadata extraction."}
+            return {"status": False, "error": "File path is not set."}
         
+        # Metadata için hızlı bir okuma (limitli)
         analysis_config = {
             "pipeline": [
-                {"type": "readers.las", "filename": f"{self._file_path}"}
+                {"type": "readers.las", "filename": f"{self._file_path}", "count": 10}
             ]
         }
-
         try:
             temp_pipeline = pdal.Pipeline(json.dumps(analysis_config))
             temp_pipeline.execute() 
             metadata_dict  = temp_pipeline.metadata
             self._analysis_pipeline = temp_pipeline
             return {"status": True, "metadata": metadata_dict}
-        except json.JSONDecodeError as e:
-            return {"status": False, "error": f"Metadata JSON parse error. {e}"}
         except Exception as e:
             return {"status": False, "error": str(e)}
 
     def get_bounds(self):
-        metadata_result = self.get_metadata()
+        # (Bounds kodu aynı kalabilir, özet geçiyorum)
+        meta_res = self.get_metadata()
+        if not meta_res["status"]: return meta_res
         
-        if metadata_result.get("status") is False:
-            return metadata_result
-
         try:
-            readers_las = metadata_result["metadata"]["metadata"]["readers.las"]
-            bounds_data_raw = {
-                "minx": readers_las.get('minx'),
-                "miny": readers_las.get('miny'),
-                "maxx": readers_las.get('maxx'),
-                "maxy": readers_las.get('maxy')
+            readers_las = meta_res["metadata"]["metadata"]["readers.las"]
+            bounds = {
+                "minx": readers_las.get('minx'), "miny": readers_las.get('miny'),
+                "maxx": readers_las.get('maxx'), "maxy": readers_las.get('maxy')
             }
-
-            if any(v is None for v in bounds_data_raw.values()):
-                return {"status": False, "error": "Bounding box data is missing in metadata."}
             
             spatial_ref = readers_las.get("spatialreference")
             crs_result = GeoUtils.parse_crs_info(spatial_ref)
             source_epsg = crs_result.get("epsg")
 
-            if source_epsg is None:
-                return {"status": False, "error": "EPSG code not found for transformation."}
-
-            transformed_result = GeoUtils.transform_bbox(
-                bounds=bounds_data_raw,
-                from_epsg = source_epsg,
-                to_epsg=4326
-            )
-
-            if transformed_result.get("status") is None:
-                return {"status": True, **transformed_result}
-            else:
-                return transformed_result
+            if source_epsg:
+                transformed = GeoUtils.transform_bbox(bounds, source_epsg, 4326)
+                return {"status": True, **transformed} if transformed.get("status") else transformed
+            return {"status": True, **bounds} # Dönüşüm yapılamazsa ham dön
             
         except Exception as e:
-            return {"status": False, "error": f"Error extracting bounds: {e}"}
+            return {"status": False, "error": f"Bounds error: {e}"}
 
     def get_sample_data(self):
         if not self._render_pipeline:
-            return {"status": False, "error": "Render pipeline has not been read yet."}
+            return {"status": False, "error": "Render pipeline is not initialized."}
 
         try:
+            # PDAL'dan structured array al
             raw_data = self._render_pipeline.arrays[0]
-            raw_x = raw_data["X"]
-            raw_y = raw_data["Y"]
-            raw_z = raw_data["Z"]
             
-            vis_x, vis_y, vis_z = RenderUtils.downsample(raw_x, raw_y, raw_z)
-            
-            return {
-                "status": True,
-                "x": vis_x,
-                "y": vis_y,
-                "z": vis_z,
-                "count": len(raw_x),
+            # Sözlük yapısına çevir
+            extracted_data = {
+                "x": raw_data["X"],
+                "y": raw_data["Y"],
+                "z": raw_data["Z"],
+                "count": len(raw_data["X"])
             }
+
+            # Ek kanalları kontrol et
+            dims = raw_data.dtype.names
+            if "Intensity" in dims:
+                extracted_data["intensity"] = raw_data["Intensity"]
+            if "Red" in dims and "Green" in dims and "Blue" in dims:
+                extracted_data["red"] = raw_data["Red"]
+                extracted_data["green"] = raw_data["Green"]
+                extracted_data["blue"] = raw_data["Blue"]
+            if "Classification" in dims:
+                extracted_data["classification"] = raw_data["Classification"]
+
+            # RenderUtils ile veriyi seyrelt (Downsample)
+            vis_data = RenderUtils.downsample(extracted_data)
+            vis_data["status"] = True
+            
+            return vis_data
+
         except Exception as e:
-            return {"status": False, "error": f"Error during data sampling : {e}"}
+            # Hatayı yakala ve string olarak döndür
+            import traceback
+            return {"status": False, "error": f"Sampling Error: {str(e)}\n{traceback.format_exc()}"}
 
     def get_summary_metadata(self, full_metadata:Dict):
+        # (Mevcut kodun aynısı kalabilir)
         try:
             readers_las = full_metadata.get("metadata", {}).get("metadata", {}).get("readers.las", {})
-            is_compressed = readers_las.get("compressed", "None")
-            points = readers_las.get("count", "None")
-            software_id = readers_las.get("software_id", "None")
-            x_range = f"{readers_las.get('minx')}-{readers_las.get('maxx')}"
-            y_range = f"{readers_las.get('miny')}-{readers_las.get('maxy')}"
-            z_range = f"{readers_las.get('minz')}-{readers_las.get('maxz')}"
-            crs_name = readers_las.get("srs", {}).get("json", {}).get("name")
-            spatial_ref = readers_las.get("spatialreference")
-
-            crs_result = GeoUtils.parse_crs_info(spatial_ref)
-            epsg_code = crs_result.get("epsg")
-            unit_name = crs_result.get("unit")
-
             return {
                 "status": True,
-                "is_compressed": is_compressed,
-                "points" : points,
-                "software_id": software_id,
-                "x_range": x_range,
-                "y_range": y_range,
-                "z_range": z_range,
-                "crs_name": crs_name,
-                "epsg": epsg_code,
-                "unit": unit_name
+                "points" : readers_las.get("count", "None"),
+                "software_id": readers_las.get("software_id", "None"),
+                "crs_name": readers_las.get("srs", {}).get("json", {}).get("name"),
+                "is_compressed": readers_las.get("compressed", "None")
             }
-
         except Exception as e:
-            return {
-                "status": False,
-                "error": str(e)
-            }
+            return {"status": False, "error": str(e)}

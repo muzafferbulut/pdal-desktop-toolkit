@@ -13,6 +13,7 @@ class DataSourcesPanel(QWidget):
     save_full_metadata_requested = pyqtSignal(str)
     remove_layer_requested = pyqtSignal(str)
     remove_stage_requested = pyqtSignal(str, int)
+    style_changed_requested = pyqtSignal(str, str)
 
     def __init__(self, parent:Optional[QWidget] = None):
         super().__init__(parent)
@@ -53,6 +54,11 @@ class DataSourcesPanel(QWidget):
 
         if item_type == "root":
             action_zoom = menu.addAction(QIcon("ui/resources/icons/zoom_to.png"), "Zoom to BBox")
+            color_menu = menu.addMenu(QIcon("ui/resources/icons/color_by.png"), "Color By")
+            act_elev = color_menu.addAction("Elevation (Z)")
+            act_int = color_menu.addAction("Intensity")
+            act_rgb = color_menu.addAction("RGB (True Color)")
+            act_cls = color_menu.addAction("Classification")
             menu.addSeparator()
             action_export = menu.addAction(QIcon("ui/resources/icons/export.png"), "Export Layer")
             action_save_pipe = menu.addAction(QIcon("ui/resources/icons/save_pipeline.png"), "Save Pipeline")
@@ -72,6 +78,14 @@ class DataSourcesPanel(QWidget):
                 self.save_full_metadata_requested.emit(file_path)
             elif selected_action == action_remove:
                 self.remove_layer_requested.emit(file_path)
+            elif selected_action == act_elev:
+                self.style_changed_requested.emit(file_path, "Elevation")
+            elif selected_action == act_int:
+                self.style_changed_requested.emit(file_path, "Intensity")
+            elif selected_action == act_rgb:
+                self.style_changed_requested.emit(file_path, "RGB")
+            elif selected_action == act_cls:
+                self.style_changed_requested.emit(file_path, "Classification")
 
         elif item_type == "stage":
             action_delete_stage = menu.addAction(QIcon("ui/resources/icons/remove.png"), "Delete Stage")

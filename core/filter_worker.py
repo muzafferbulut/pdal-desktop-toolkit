@@ -24,21 +24,27 @@ class FilterWorker(QObject):
             self.progress.emit(80)
             arrays = pipeline.arrays[0]
 
-            # ham data
-            raw_x = arrays["X"]
-            raw_y = arrays["Y"]
-            raw_z = arrays["Z"]
-
-            vis_x, vis_y, vis_z = RenderUtils.downsample(raw_x, raw_y, raw_z)
-
-            result_data = {
-                "x": vis_x,
-                "y": vis_y,
-                "z": vis_z,
+            extracted_data = {
+                "x": arrays["X"],
+                "y": arrays["Y"],
+                "z": arrays["Z"],
                 "count": count
             }
+
+            dims = arrays.dtype.names
+            if "Intensity" in dims:
+                extracted_data["intensity"] = arrays["Intensity"]
+            if "Red" in dims and "Green" in dims and "Blue" in dims:
+                extracted_data["red"] = arrays["Red"]
+                extracted_data["green"] = arrays["Green"]
+                extracted_data["blue"] = arrays["Blue"]
+            if "Classification" in dims:
+                extracted_data["classification"] = arrays["Classification"]
+
+
+            vis_data = RenderUtils.downsample(extracted_data)
             self.progress.emit(100)
-            self.finished.emit(self.file_path, result_data, self.stage)
+            self.finished.emit(self.file_path, vis_data, self.stage)
 
         except Exception as e:
             error_details = f"Worker error : {str(e)}\n{traceback.format_exc()}"
