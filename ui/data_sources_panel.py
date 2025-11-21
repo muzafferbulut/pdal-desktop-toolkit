@@ -136,7 +136,7 @@ class DataSourcesPanel(QWidget):
             return
         
         try:
-            stage_icon = QIcon("ui/resources/icons/gear.png")
+            stage_icon = QIcon("ui/resources/icons/stage.png")
         except:
             stage_icon = QIcon()
         
@@ -145,7 +145,10 @@ class DataSourcesPanel(QWidget):
             display_text += f" ({stage_details})"
 
         child_item = QTreeWidgetItem(parent_item, [display_text])
-        child_item
+        child_item.setIcon(0, stage_icon)
+        child_item.setData(0, Qt.UserRole, file_path)
+        child_item.setData(0, Qt.UserRole + 1, "stage")
+        parent_item.setExpanded(True)
 
     def remove_layer(self, file_path:str):
         if file_path in self.layer_items:

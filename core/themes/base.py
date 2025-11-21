@@ -111,7 +111,7 @@ class BaseTheme(ABC):
             alternate-background-color: %(background_alt)s;
         }
         QTreeWidget::item, QListWidget::item, QTableWidget::item {
-            padding: 6px 4px; 
+            padding: 2px 2px; 
             margin: 0px;
         }
         QHeaderView::section {
@@ -147,7 +147,6 @@ class BaseTheme(ABC):
             background-color: %(background_alt)s;
             border: 1px solid %(border)s;
             padding: 8px 24px; 
-            margin-right: 2px;
             min-width: 60px;
         }
         

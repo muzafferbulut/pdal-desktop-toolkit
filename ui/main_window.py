@@ -408,8 +408,8 @@ class MainWindow(QMainWindow):
         self.map_view = GISMapView()
         self.three_d_view = ThreeDView()
 
-        self.tab_widget.addTab(self.map_view, "Map View")
-        self.tab_widget.addTab(self.three_d_view, "3D View")
+        self.tab_widget.addTab(self.map_view, QIcon("ui/resources/icons/map_view.png"), "Map View")
+        self.tab_widget.addTab(self.three_d_view, QIcon("ui/resources/icons/3d_view.png"), "3D View")
 
         ThemeManager.add_observer(self.three_d_view.on_theme_change)
         ThemeManager.add_observer(self.map_view.on_theme_change)
@@ -553,18 +553,14 @@ class MainWindow(QMainWindow):
             self.data_sources_panel.add_stage_node(
                 file_path=file_path,
                 stage_name=stage_object.name,
-                stage_details=stage_object.display_text.replace(stage_object.name, "").strip("()")
+                stage_details=stage_object.display_text.replace(stage_object.name, "").strip().strip("()")
             )
             self.logger.info(f"Stage added: {stage_object.name}")
         
         else:
             self.logger.info("Pipeline refreshed (Stage removed).")
 
-        self.three_d_view.render_point_cloud(
-            result_data["x"], 
-            result_data["y"], 
-            result_data["z"]
-        )
+        self.three_d_view.render_point_cloud(result_data)
 
     def _create_status_bar(self):
         self.statusBar()
