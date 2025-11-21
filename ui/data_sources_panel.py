@@ -132,3 +132,10 @@ class DataSourcesPanel(QWidget):
 
         child_item = QTreeWidgetItem(parent_item, [display_text])
         child_item
+
+    def remove_layer(self, file_path:str):
+        if file_path in self.layer_items:
+            item = self.layer_items[file_path]
+            root = self.data_tree.invisibleRootItem()
+            root.removeChild(item)
+            del self.layer_items[file_path]
