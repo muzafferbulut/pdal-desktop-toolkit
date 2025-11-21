@@ -224,7 +224,7 @@ class MainWindow(QMainWindow):
             self.logger.warning(f"'{file_name}' does not contain Classification channel.")
             return
         
-        self.three_d_view.render_point_cloud(data, color_by=style_name)
+        self.three_d_view.render_point_cloud(data, color_by=style_name, reset_view=False)
         self.logger.info(f"Updated style for '{file_name}' to {style_name}.")
 
     def _handle_remove_stage(self, file_path: str, stage_index: int):

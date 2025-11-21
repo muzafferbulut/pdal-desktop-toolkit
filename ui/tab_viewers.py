@@ -64,7 +64,7 @@ class ThreeDView(QFrame):
         self.plotter.camera_position = "iso"
         self.plotter.show_axes()
 
-    def render_point_cloud(self, data_dict: dict, color_by: str = "Elevation"):
+    def render_point_cloud(self, data_dict: dict, color_by: str = "Elevation", reset_view: bool = True):
         """
         data_dict: {x, y, z, intensity, red, green...}
         color_by: 'Elevation', 'Intensity', 'RGB', 'Classification'
@@ -137,7 +137,10 @@ class ThreeDView(QFrame):
                 self.plotter.remove_scalar_bar()
 
             self.current_mesh = point_cloud
-            self.plotter.reset_camera()
+
+            if reset_view:
+                self.plotter.reset_camera()
+            
             self.plotter.render()
             
         except Exception as e:
