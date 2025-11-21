@@ -303,6 +303,8 @@ class MainWindow(QMainWindow):
         
         self.export_worker.finished.connect(self._handle_export_success)
         self.export_worker.error.connect(self._handle_reader_error)
+
+        self.export_worker.progress.connect(self._handle_progress)
         
         self.export_worker.finished.connect(self.export_thread.quit)
         self.export_worker.finished.connect(self.export_worker.deleteLater)
