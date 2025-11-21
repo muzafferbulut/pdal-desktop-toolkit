@@ -17,7 +17,6 @@ from core.read_worker import ReaderWorker
 from PyQt5.QtCore import Qt, QThread
 from core.logger import Logger
 from typing import Optional
-import json
 import copy
 import os
 
@@ -505,15 +504,8 @@ class MainWindow(QMainWindow):
             
             base_pipeline = context.get_full_pipeline_json()
             base_pipeline.append(new_stage.config)
-
             self.logger.info(f"Running filter: {new_stage.display_text}...")
-            
-            vis_pipeline = copy.deepcopy(base_pipeline)
-            vis_pipeline.append({
-                "type": "filters.decimation",
-                "step": 10
-            })
-            self._start_filter_worker(current_file, vis_pipeline, new_stage)
+            self._start_filter_worker(current_file, base_pipeline, new_stage)
     
     def _start_filter_worker(self, file_path, pipeline_config, stage_object:Optional[PipelineStage] = None):        
         self.progressBar.show()
@@ -531,13 +523,13 @@ class MainWindow(QMainWindow):
         context = self._data_cache.get(file_path)
         input_count = 0
         if context:
-            if context.current_render_data:
-                input_count = context.current_render_data.get("count", 0)
-            elif context.metadata:
+            if not context.stages:
                 try:
                     input_count = int(context.metadata.get("points", 0))
                 except:
-                    input_count = 0
+                    input_count = context.current_render_data.get("count", 0) if context.current_render_data else 0
+            elif context.current_render_data:
+                input_count = context.current_render_data.get("count", 0)
 
         self.filter_thread = QThread()
         self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object, input_count)
