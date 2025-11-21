@@ -109,6 +109,30 @@
           boundsLayer.clearLayers();
         }
       };
+
+      var currentLayer = null;
+
+      function setMapTileLayer(style) {
+        if (typeof map === "undefined") return;
+        if (currentLayer) {
+          map.removeLayer(currentLayer);
+        }
+
+        var url = "";
+        var attrib = "";
+
+        if (style === "carto_dark") {
+          url = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+          attrib = "&copy; OpenStreetMap &copy; CARTO";
+        } else {
+          url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+          attrib = "&copy; OpenStreetMap contributors";
+        }
+        currentLayer = L.tileLayer(url, {
+          attribution: attrib,
+          maxZoom: 19,
+        }).addTo(map);
+      }
     </script>
   </body>
 </html>

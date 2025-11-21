@@ -387,6 +387,9 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.map_view, "Map View")
         self.tab_widget.addTab(self.three_d_view, "3D View")
 
+        ThemeManager.add_observer(self.three_d_view.on_theme_change)
+        ThemeManager.add_observer(self.map_view.on_theme_change)
+
     def _open_file_dialog(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Select a file", "", "LAS/LAZ Files (*.las *.laz)"

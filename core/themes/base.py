@@ -13,6 +13,16 @@ class BaseTheme(ABC):
     def palette(self) -> Dict[str, Any]:
         pass
 
+    @property
+    @abstractmethod
+    def three_d_background(self) -> Dict[str, str]:
+        pass
+
+    @property
+    @abstractmethod
+    def map_style(self) -> str:
+        pass
+
     def get_stylesheet(self) -> str:
         colors = self.palette
         base_css = """

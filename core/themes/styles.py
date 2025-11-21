@@ -23,6 +23,14 @@ class LightTheme(BaseTheme):
             'selection_bg': '#e8f0fe',
             'selection_text': '#0078d4'
         }
+    
+    @property
+    def three_d_background(self):
+        return {'top': '#BBE2F1', 'bottom': '#42535C'}
+
+    @property
+    def map_style(self):
+        return 'osm'
 
 class DarkTheme(BaseTheme):
     name = "Dark Modern"
@@ -47,6 +55,14 @@ class DarkTheme(BaseTheme):
             'selection_bg': '#094771',
             'selection_text': '#ffffff'
         }
+    
+    @property
+    def three_d_background(self):
+        return {'top': '#1e1e1e', 'bottom': '#000000'}
+
+    @property
+    def map_style(self):
+        return 'carto_dark'
 
 class HighContrastTheme(BaseTheme):
     name = "High Contrast"
@@ -71,3 +87,11 @@ class HighContrastTheme(BaseTheme):
             'selection_bg': '#ffff00',
             'selection_text': '#000000'
         }
+    
+    @property
+    def three_d_background(self):
+        return {'top': '#000000', 'bottom': '#000000'}
+
+    @property
+    def map_style(self):
+        return 'carto_dark'

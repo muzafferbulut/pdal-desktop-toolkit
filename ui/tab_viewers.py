@@ -36,6 +36,14 @@ class GISMapView(QWebEngineView):
         js_command = "window.clearBBoxJS();"
         self.page().runJavaScript(js_command)
 
+    def on_theme_change(self, theme):
+        map_style = theme.map_style
+
+        js_command = f"window.setMapTileLayer('{map_style}');"
+        
+        if self.map_is_loaded:
+            self.page().runJavaScript(js_command)
+
 class ThreeDView(QFrame):
 
     def __init__(self, parent=None):
@@ -104,3 +112,13 @@ class ThreeDView(QFrame):
             self.plotter.render()
         except Exception as e:
             return
+        
+    def on_theme_change(self, theme):
+        colors = theme.three_d_background
+
+        if self.plotter:
+            self.plotter.set_background(
+                colors = colors['bottom'],
+                top = colors['top']
+            )
+        text_color = "white" if "Dark" in theme.name or "Contrast" in theme.name else "black"

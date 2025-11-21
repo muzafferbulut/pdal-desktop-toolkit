@@ -5,6 +5,7 @@ from .styles import LightTheme, DarkTheme, HighContrastTheme
 
 class ThemeManager:
     _themes: Dict[str, Type[BaseTheme]] = {}
+    _observers = []
     _themes[LightTheme.name] = LightTheme
     _themes[DarkTheme.name] = DarkTheme
     _themes[HighContrastTheme.name] = HighContrastTheme
@@ -12,6 +13,10 @@ class ThemeManager:
     @classmethod
     def get_theme_names(cls):
         return list(cls._themes.keys())
+    
+    @classmethod
+    def add_observer(cls, callback_func):
+        cls._observers.append(callback_func)
 
     @classmethod
     def apply_theme(cls, theme_name: str):
@@ -25,3 +30,9 @@ class ThemeManager:
         app = QApplication.instance()
         if app:
             app.setStyleSheet(stylesheet)
+
+        for observer in cls._observers:
+            try:
+                observer(theme_instance)
+            except Exception as e:
+                pass
