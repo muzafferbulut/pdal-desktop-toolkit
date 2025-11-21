@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,
-    QTabWidget,QFileDialog,QProgressBar,QApplication,QMessageBox,)
-from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor, QFont
+    QTabWidget,QFileDialog,QProgressBar,QMessageBox,)
+from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor
 from core.layer_context import LayerContext, PipelineStage
 from data.writers import PipelineWriter, MetadataWriter
 from ui.data_sources_panel import DataSourcesPanel
@@ -17,6 +17,7 @@ from core.read_worker import ReaderWorker
 from PyQt5.QtCore import Qt, QThread
 from core.logger import Logger
 from typing import Optional
+import json
 import copy
 import os
 
@@ -222,30 +223,37 @@ class MainWindow(QMainWindow):
         self._start_filter_worker(file_path, vis_pipeline, stage_object=None)
 
     def _handle_zoom_to_bbox(self, file_path: str):
-        file_name = os.path.basename(file_path)
-        cached_data = self._data_cache.get(file_path)
+        context = self._data_cache.get(file_path)
 
-        if not cached_data:
-            self.logger.error(f"Cannot zoom, data not found in cache: {file_name}")
+        if not context:
+            self.logger.error(f"Can not zoom, data not found: {file_path}")
             return
         
-        self.map_view.draw_bbox(cached_data.bounds)
-        self.logger.info(f"Zoomed Map View to BBox of '{file_name}'.")
+        bounds = context.bounds
+
+        if not bounds or not bounds.get("status"):
+            QMessageBox.warning(self, "Warning", "Spatial bounds not found for this layer.")
+            return
+        
+        file_name = os.path.basename(file_path)
+        self.map_view.draw_bbox(bounds)
+
+        self.logger.info(f"Zoomed to bounds of '{file_name}'.")
+        self.tab_widget.setCurrentWidget(self.map_view)
 
     def _handle_export_layer(self, file_path: str):
-        file_name = os.path.basename(file_path)
-        cached_data = self._data_cache.get(file_path)
-
-        if not cached_data:
-            self.logger.error(f"Cannot export, data not found: {file_name}")
+        context = self._data_cache.get(file_path)
+        if not context:
             return
-        
-        pipeline_config = cached_data.get_full_pipeline_json()
+            
+        file_name = os.path.basename(file_path)
+
+        pipeline_config = context.get_full_pipeline_json()
 
         save_path, _ = QFileDialog.getSaveFileName(
             self, 
             "Export Layer", 
-            f"export_{file_name}", 
+            f"export_{file_name}",
             "LAS Files (*.las);;LAZ Files (*.laz)"
         )
 
@@ -260,25 +268,19 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Exporting layer... Please wait.", 0)
 
         if hasattr(self, 'export_thread') and self.export_thread is not None:
-            try:
-                if self.export_thread.isRunning():
-                    self.logger.warning("Previous export still running. Stopping it.")
-                    self.export_thread.quit()
-                    self.export_thread.wait()
-            except RuntimeError:
-                pass
+            if self.export_thread.isRunning():
+                self.export_thread.quit()
+                self.export_thread.wait()
 
         self.export_thread = QThread()
         self.export_worker = ExportWorker(save_path, pipeline_config)
         
         self.export_worker.moveToThread(self.export_thread)
-        
         self.export_thread.started.connect(self.export_worker.run)
         
         self.export_worker.finished.connect(self._handle_export_success)
         self.export_worker.error.connect(self._handle_reader_error)
         
-        # Temizlik
         self.export_worker.finished.connect(self.export_thread.quit)
         self.export_worker.finished.connect(self.export_worker.deleteLater)
         self.export_thread.finished.connect(self.export_thread.deleteLater)
@@ -288,19 +290,16 @@ class MainWindow(QMainWindow):
     def _handle_export_success(self, message: str):
         self.progressBar.hide()
         self.statusBar().showMessage("Export completed.", 5000)
-        self.logger.info(message.replace("\n", " "))
-        QMessageBox.information(self, "Export Successful", message)
+        self.logger.info("Export operation finished successfully.")
 
     def _handle_save_pipeline(self, file_path: str):
-        file_name = os.path.basename(file_path)
-        cached_data = self._data_cache.get(file_path)
-
-        cached_data = self._data_cache.get(file_path)
-        if not cached_data:
-            self.logger.error(f"Cannot save pipeline, data not found: {file_name}")
+        context = self._data_cache.get(file_path)
+        if not context:
             return
+            
+        file_name = os.path.basename(file_path)
         
-        pipeline_json = cached_data.get_full_pipeline_json()
+        pipeline_json = context.get_full_pipeline_json()
 
         save_path, _ = QFileDialog.getSaveFileName(
             self, 
@@ -316,11 +315,12 @@ class MainWindow(QMainWindow):
         result = writer.write(save_path, pipeline_json)
 
         if result.get("status"):
-            self.logger.info(f"Pipeline saved successfully to: {save_path}")
-            self.statusBar().showMessage("Pipeline saved!", 3000)
+            self.logger.info(f"Pipeline saved to: {save_path}")
+            self.statusBar().showMessage("Pipeline configuration saved.", 3000)
         else:
-            self.logger.error(f"Failed to save pipeline: {result.get('error')}")
-            QMessageBox.critical(self, "Error", f"Could not save pipeline:\n{result.get('error')}")
+            error_msg = result.get("error")
+            self.logger.error(f"Failed to save pipeline: {error_msg}")
+            QMessageBox.critical(self, "Error", f"Could not save pipeline:\n{error_msg}")
 
     def _handle_save_full_metadata(self, file_path: str):
         file_name = os.path.basename(file_path)

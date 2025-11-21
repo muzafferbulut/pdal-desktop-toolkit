@@ -62,12 +62,19 @@ class DataSourcesPanel(QWidget):
 
             selected_action = menu.exec_(self.data_tree.mapToGlobal(position))
 
-            if selected_action == action_remove:
+            if selected_action == action_zoom:
+                self.zoom_to_bbox_requested.emit(file_path)
+            elif selected_action == action_export:
+                self.export_layer_requested.emit(file_path)
+            elif selected_action == action_save_pipe:
+                self.save_pipeline_requested.emit(file_path)
+            elif selected_action == action_save_meta:
+                self.save_full_metadata_requested.emit(file_path)
+            elif selected_action == action_remove:
                 self.remove_layer_requested.emit(file_path)
 
         elif item_type == "stage":
             action_delete_stage = menu.addAction(QIcon("ui/resources/icons/remove.png"), "Delete Stage")
-            
             selected_action = menu.exec_(self.data_tree.mapToGlobal(position))
             
             if selected_action == action_delete_stage:
@@ -124,14 +131,4 @@ class DataSourcesPanel(QWidget):
             display_text += f" ({stage_details})"
 
         child_item = QTreeWidgetItem(parent_item, [display_text])
-        child_item.setIcon(0, stage_icon)
-        child_item.setData(0, Qt.UserRole, file_path)
-        child_item.setData(0, Qt.UserRole + 1, "stage")
-        parent_item.setExpanded(True)
-
-    def remove_layer(self, file_path:str):
-        if file_path in self.layer_items:
-            item = self.layer_items[file_path]
-            root = self.data_tree.invisibleRootItem()
-            root.removeChild(item)
-            del self.layer_items[file_path]
+        child_item
