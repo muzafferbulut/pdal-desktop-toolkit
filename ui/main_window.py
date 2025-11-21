@@ -560,7 +560,6 @@ class MainWindow(QMainWindow):
         context.current_render_data = result_data
     
         output_count = result_data.get("count", 0)
-        diff = input_count - output_count
 
         if stage_object:
             context.add_stage(stage_object)
@@ -576,7 +575,6 @@ class MainWindow(QMainWindow):
             log_msg = (
                 f"Stage added: {stage_object.name}\n"
                 f"   Points: {input_count:,} -> {output_count:,}\n"
-                f"   Removed: {diff:,} points"
             )
             self.logger.info(log_msg)
         

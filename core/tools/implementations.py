@@ -21,3 +21,21 @@ class OutlierFilter(BaseTool):
             "mean_k": int(params.get("mean_k", 8)),
             "multiplier": float(params.get("multiplier", 2))
         }
+    
+@register_tool
+class RangeFilter(BaseTool):
+    name = "Range Filter"
+    group = "Clean Data"
+    description = (
+        "Keeps points that fall within specific criteria. "
+        "Use 'Classification![7:7]' to remove noise, or 'Z[0:100]' for elevation."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {"limits": "Classification![7:7]"}
+    
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.range",
+            "limits": str(params.get("limits", "Classification![7:7]"))
+        }
