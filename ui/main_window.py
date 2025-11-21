@@ -254,6 +254,8 @@ class MainWindow(QMainWindow):
             self.logger.warning(f"'{file_name}' does not contain Classification channel.")
             return
         
+        context.active_style = style_name
+        
         self.three_d_view.render_point_cloud(data, color_by=style_name, reset_view=False)
         self.logger.info(f"Updated style for '{file_name}' to {style_name}.")
 
@@ -614,7 +616,9 @@ class MainWindow(QMainWindow):
         else:
             self.logger.info(f"Pipeline refreshed. Current Points: {output_count:,}")
 
-        self.three_d_view.render_point_cloud(result_data)
+        current_style = getattr(context, "active_style", "Elevation")
+
+        self.three_d_view.render_point_cloud(result_data, color_by=current_style, reset_view=False)
 
     def _create_status_bar(self):
         self.statusBar()
@@ -661,8 +665,8 @@ class MainWindow(QMainWindow):
         sample_data = cached_data.current_render_data
 
         if sample_data and "x" in sample_data:
-            self.three_d_view.render_point_cloud(sample_data)
+            current_style = getattr(cached_data, "active_style", "Elevation")
+            self.three_d_view.render_point_cloud(sample_data, color_by=current_style)
         else:
             error_msg = sample_data.get("error", "Unknown error") if sample_data else "Data is None"
             self.logger.error(f"3D Render Failed for '{file_name}': {error_msg}")
-            QMessageBox.warning(self, "Render Error", f"Could not render 3D view:\n{error_msg}")
