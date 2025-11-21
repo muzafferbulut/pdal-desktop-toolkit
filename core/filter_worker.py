@@ -5,21 +5,23 @@ import pdal
 import json
 
 class FilterWorker(QObject):
-    finished = pyqtSignal(str, dict, object) 
+    finished = pyqtSignal(str, dict, object, int) 
     error = pyqtSignal(str)
     progress = pyqtSignal(int)
 
-    def __init__(self, file_path: str, pipeline_config: list, stage: object):
+    def __init__(self, file_path: str, pipeline_config: list, stage: object, input_count: int):
         super().__init__()
         self.file_path = file_path
         self.pipeline_config = pipeline_config
         self.stage = stage
+        self.input_count = input_count
 
     def run(self):
         try:
             self.progress.emit(10)
             json_str = json.dumps(self.pipeline_config, indent=2)
-            pipeline = pdal.Pipeline(json_str)            
+            pipeline = pdal.Pipeline(json_str)
+            self.progress.emit(-1)         
             count = pipeline.execute()
             self.progress.emit(80)
             arrays = pipeline.arrays[0]
@@ -44,7 +46,7 @@ class FilterWorker(QObject):
 
             vis_data = RenderUtils.downsample(extracted_data)
             self.progress.emit(100)
-            self.finished.emit(self.file_path, vis_data, self.stage)
+            self.finished.emit(self.file_path, vis_data, self.stage, self.input_count)
 
         except Exception as e:
             error_details = f"Worker error : {str(e)}\n{traceback.format_exc()}"

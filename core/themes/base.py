@@ -160,8 +160,6 @@ class BaseTheme(ABC):
         
         QTabBar::tab:!selected:hover {
             background-color: %(button_hover)s;
-            margin-top: 2px; 
-            padding-bottom: 6px;
         }
         QMenuBar {
             background-color: %(header_bg)s;

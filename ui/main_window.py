@@ -445,7 +445,15 @@ class MainWindow(QMainWindow):
             self.logger.warning("File not selected.")
 
     def _handle_progress(self, value:int):
-        self.progressBar.setValue(value)
+        if value == -1:
+            self.progressBar.setRange(0, 0) 
+            self.progressBar.setTextVisible(False)        
+        else:
+            if self.progressBar.maximum() == 0:
+                self.progressBar.setRange(0, 100)
+                self.progressBar.setTextVisible(True)
+            
+            self.progressBar.setValue(value)
             
     def _handle_reader_success(self, file_path:str, bounds:dict, full_metadata:dict, summary_metadata:dict, sample_data):
         self.progressBar.hide()
@@ -520,8 +528,19 @@ class MainWindow(QMainWindow):
             except RuntimeError:
                 pass
 
+        context = self._data_cache.get(file_path)
+        input_count = 0
+        if context:
+            if context.current_render_data:
+                input_count = context.current_render_data.get("count", 0)
+            elif context.metadata:
+                try:
+                    input_count = int(context.metadata.get("points", 0))
+                except:
+                    input_count = 0
+
         self.filter_thread = QThread()
-        self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object)
+        self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object, input_count)
         
         self.filter_worker.moveToThread(self.filter_thread)
         
@@ -538,7 +557,7 @@ class MainWindow(QMainWindow):
         self.filter_thread.finished.connect(self.filter_thread.deleteLater)
         self.filter_thread.start()
 
-    def _handle_filter_success(self, file_path, result_data, stage_object: Optional[PipelineStage]):
+    def _handle_filter_success(self, file_path, result_data, stage_object: Optional[PipelineStage], input_count: int):
         self.progressBar.hide()
         self.statusBar().showMessage("Process completed.", 3000)
 
@@ -547,18 +566,30 @@ class MainWindow(QMainWindow):
         
         context: LayerContext = self._data_cache[file_path]        
         context.current_render_data = result_data
+    
+        output_count = result_data.get("count", 0)
+        diff = input_count - output_count
 
         if stage_object:
             context.add_stage(stage_object)
+            
+            clean_details = stage_object.display_text.replace(stage_object.name, "").strip().strip("()")
+            
             self.data_sources_panel.add_stage_node(
                 file_path=file_path,
                 stage_name=stage_object.name,
-                stage_details=stage_object.display_text.replace(stage_object.name, "").strip().strip("()")
+                stage_details=clean_details
             )
-            self.logger.info(f"Stage added: {stage_object.name}")
+            
+            log_msg = (
+                f"Stage added: {stage_object.name}\n"
+                f"   Points: {input_count:,} -> {output_count:,}\n"
+                f"   Removed: {diff:,} points"
+            )
+            self.logger.info(log_msg)
         
         else:
-            self.logger.info("Pipeline refreshed (Stage removed).")
+            self.logger.info(f"Pipeline refreshed. Current Points: {output_count:,}")
 
         self.three_d_view.render_point_cloud(result_data)
 

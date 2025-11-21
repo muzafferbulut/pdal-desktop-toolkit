@@ -17,6 +17,7 @@ class ReaderWorker(QObject):
     def run(self):
         try:
             self.progress.emit(10)
+            self.progress.emit(-1)
             result = self.reader.read(self.file_path)
 
             if result.get("status"):
