@@ -5,7 +5,7 @@ from typing import Dict, Any
 @register_tool
 class OutlierFilter(BaseTool):
     name = "Outlier Filter"
-    group = "Clean Data"
+    group = "Data Cleaning"
     description = (
         "Removes noise using statistical analysis (Mean/Stdev). "
         "Useful for cleaning up isolated points in the cloud."
@@ -25,7 +25,7 @@ class OutlierFilter(BaseTool):
 @register_tool
 class RangeFilter(BaseTool):
     name = "Range Filter"
-    group = "Clean Data"
+    group = "Data Cleaning"
     description = (
         "Keeps points that fall within specific criteria. "
         "Use 'Classification![7:7]' to remove noise, or 'Z[0:100]' for elevation."
