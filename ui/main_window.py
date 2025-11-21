@@ -58,15 +58,22 @@ class MainWindow(QMainWindow):
         self.action_open_file.triggered.connect(self._open_file_dialog)
         self.file_menu.addAction(self.action_open_file)
 
-        self.action_save_as = QAction(QIcon("ui/resources/icons/save.png"), "Save As...", self)
-        self.action_save_as.setShortcut("Ctrl+S")
-        self.action_save_as.setStatusTip("Save selected layer (Ctrl+S).")
-        self.file_menu.addAction(self.action_save_as)
+        self.action_export_layer = QAction(QIcon("ui/resources/icons/export.png"), "Export Layer", self)
+        self.action_export_layer.setShortcut("Ctrl+E")
+        self.action_export_layer.setStatusTip("Export selected layer to LAS/LAZ.")
+        self.action_export_layer.triggered.connect(self._on_toolbar_export_layer)
+        self.file_menu.addAction(self.action_export_layer)
 
         self.action_save_pipeline = QAction(QIcon("ui/resources/icons/save_pipeline.png"), "Save Pipeline...", self)
         self.action_save_pipeline.setShortcut("Ctrl+P")
         self.action_save_pipeline.setStatusTip("Save active pipeline (Ctrl+P).")
+        self.action_save_pipeline.triggered.connect(self._on_toolbar_save_pipeline)
         self.file_menu.addAction(self.action_save_pipeline)
+
+        self.action_save_metadata = QAction(QIcon("ui/resources/icons/metadata.png"), "Save Full Metadata", self)
+        self.action_save_metadata.setStatusTip("Save metadata to JSON.")
+        self.action_save_metadata.triggered.connect(self._on_toolbar_save_metadata)
+        self.file_menu.addAction(self.action_save_metadata)
 
         # view menü actions
         self.view_menu = menu_bar.addMenu("View")
@@ -96,13 +103,37 @@ class MainWindow(QMainWindow):
         self.help_menu.addAction(self.action_about)
 
         # toolbar actions
-        self.file_toolbar = self.addToolBar("File Operations")
+        self.file_toolbar = self.addToolBar("Toolbar")
         self.file_toolbar.setMovable(False)
 
         self.file_toolbar.addAction(self.action_open_file)
-        self.file_toolbar.addAction(self.action_save_as)
-        self.file_toolbar.addAction(self.action_save_pipeline)
         self.file_toolbar.addSeparator()
+        self.file_toolbar.addAction(self.action_export_layer)
+        self.file_toolbar.addAction(self.action_save_pipeline)
+        self.file_toolbar.addAction(self.action_save_metadata)
+        self.file_toolbar.addSeparator()
+
+    def _get_active_layer_path(self) -> Optional[str]:
+        path = self.data_sources_panel.get_selected_file_path()
+        if not path:
+            self.logger.warning("Operation ignored: No layer selected.")
+            return None
+        return path
+    
+    def _on_toolbar_export_layer(self):
+        file_path = self._get_active_layer_path()
+        if file_path:
+            self._handle_export_layer(file_path)
+
+    def _on_toolbar_save_pipeline(self):
+        file_path = self._get_active_layer_path()
+        if file_path:
+            self._handle_save_pipeline(file_path)
+
+    def _on_toolbar_save_metadata(self):
+        file_path = self._get_active_layer_path()
+        if file_path:
+            self._handle_save_full_metadata(file_path)
 
     def _populate_themes_menu(self):
         for name in ThemeManager.get_theme_names():
