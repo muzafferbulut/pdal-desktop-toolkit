@@ -105,3 +105,97 @@ class PmfFilter(BaseTool):
             "slope": float(params.get("slope", 1.0)),
             "max_distance": float(params.get("max_distance", 2.0))
         }
+    
+@register_tool
+class DbscanFilter(BaseTool):
+    name = "DBSCAN Clustering"
+    group = "Segmentation"
+    description = (
+        "DBSCAN Clustering. Extracts and labels clusters based on point density "
+        "using Euclidean distance. Highly effective for segmenting individual objects."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "min_points": 5,      # Bir küme oluşturmak için gereken minimum nokta sayısı (int)
+            "eps": 0.5            # Komşuluk için maksimum mesafe (float, metre cinsinden)
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.dbscan",
+            "min_points": int(params.get("min_points", 5)),
+            "eps": float(params.get("eps", 0.5))
+        }
+    
+@register_tool
+class CsfFilter(BaseTool):
+    name = "CSF Filter (Ground)"
+    group = "Classification" 
+    description = (
+        "Cloth Simulation Filter (Zhang et al., 2016). Highly accurate "
+        "ground classification using a simulated cloth to model the terrain."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "resolution": 1.0,           # Kumaşın ızgara çözünürlüğü (float)
+            "class_threshold": 0.5,      # Sınıflandırma eşiği (float)
+            "cloth_resolution": 0.5,     # Kumaş simülasyonu hassasiyeti (float)
+            "time_step": 0.65            # Simülasyon zaman adımı (float)
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.csf",
+            "resolution": float(params.get("resolution", 1.0)),
+            "class_threshold": float(params.get("class_threshold", 0.5)),
+            "cloth_resolution": float(params.get("cloth_resolution", 0.5)),
+            "time_step": float(params.get("time_step", 0.65))
+        }
+
+@register_tool
+class IqrFilter(BaseTool):
+    name = "IQR Filter (Noise)"
+    group = "Noise/Outlier"
+    description = (
+        "Removes outliers using the Interquartile Range (IQR) method. "
+        "It is more robust to extreme outliers than standard deviation methods."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        """
+        IQR filtresi için varsayılan parametreler: Z boyutunda 1.5 çarpanı.
+        """
+        return {
+            "dimension": "Z",  # Hangi boyutta uygulanacağı
+            "k": 1.5           # IQR çarpanı (genellikle 1.5 kullanılır)
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.iqr",
+            "dimension": str(params.get("dimension", "Z")),
+            "k": float(params.get("k", 1.5))
+        }
+    
+@register_tool
+class VoxelDownsizeFilter(BaseTool):
+    name = "Voxel Downsize Filter"
+    group = "Sampling" 
+    description = (
+        "Reduces the point cloud density using a Voxel Grid. "
+        "It selects the first point within each 3D cell (voxel), "
+        "resulting in a uniformly distributed point cloud."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {"cell_size": 0.5}
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.voxeldownsize",
+            # PDAL'da bu parametre 'cell' olarak geçer.
+            "cell": float(params.get("cell_size", 0.5)) 
+        }
+    
