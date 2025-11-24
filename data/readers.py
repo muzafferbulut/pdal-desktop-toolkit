@@ -1,24 +1,23 @@
-from data.data_handler import IDataReader
+from data.data_handler import IBasicReader, IMetadataExtractor, IDataSampler
+from core.render_utils import RenderUtils 
 from core.geo_utils import GeoUtils
-from typing import Dict, Any
+from typing import Dict, Any, Union
+import numpy as np  
+import traceback
 import pdal
 import json
-import numpy as np  # <-- EKSİK OLABİLİR
-from core.render_utils import RenderUtils # <-- EKSİK OLABİLİR
 
-class LasLazReader(IDataReader):
+class LasLazReader(IBasicReader, IMetadataExtractor, IDataSampler):
 
     def __init__(self, sample_step: int = 10):
-        self._analysis_pipeline = None
-        self._render_pipeline = None
+        self._analysis_pipeline: Union[pdal.Pipeline, None] = None
+        self._render_pipeline: Union[pdal.Pipeline, None] = None
         self._sample_step = sample_step
-        self._file_path = None
+        self._file_path: Union[str, None] = None 
 
     def read(self, file_path: str) -> Dict[str, Any]:
         self._file_path = file_path
         try:
-            # Okuma sırasında decimation yapmıyoruz, ham veriyi çekiyoruz.
-            # Decimation'ı get_sample_data içinde RenderUtils ile yapacağız.
             render_config = {
                 "pipeline": [
                     {"type": "readers.las", "filename": f"{file_path}"}
@@ -30,11 +29,10 @@ class LasLazReader(IDataReader):
         except Exception as e:
             return {"status":False, "error": f"PDAL Pipeline Error during read: {e}"}
 
-    def get_metadata(self):       
+    def get_metadata(self, file_path: str) -> Dict[str, Any]: 
         if not self._file_path:
-            return {"status": False, "error": "File path is not set."}
+            self._file_path = file_path
         
-        # Metadata için hızlı bir okuma (limitli)
         analysis_config = {
             "pipeline": [
                 {"type": "readers.las", "filename": f"{self._file_path}", "count": 10}
@@ -49,9 +47,24 @@ class LasLazReader(IDataReader):
         except Exception as e:
             return {"status": False, "error": str(e)}
 
-    def get_bounds(self):
-        # (Bounds kodu aynı kalabilir, özet geçiyorum)
-        meta_res = self.get_metadata()
+    def get_summary_metadata(self, full_metadata:Dict) -> Dict[str, Any]:
+        try:
+            readers_las = full_metadata.get("metadata", {}).get("metadata", {}).get("readers.las", {})
+            return {
+                "status": True,
+                "points" : readers_las.get("count", "None"),
+                "software_id": readers_las.get("software_id", "None"),
+                "crs_name": readers_las.get("srs", {}).get("json", {}).get("name"),
+                "is_compressed": readers_las.get("compressed", "None")
+            }
+        except Exception as e:
+            return {"status": False, "error": str(e)}
+
+    def get_bounds(self, file_path: str) -> Dict[str, Any]: 
+        if not self._file_path:
+            self._file_path = file_path
+            
+        meta_res = self.get_metadata(file_path)
         if not meta_res["status"]: return meta_res
         
         try:
@@ -68,20 +81,18 @@ class LasLazReader(IDataReader):
             if source_epsg:
                 transformed = GeoUtils.transform_bbox(bounds, source_epsg, 4326)
                 return {"status": True, **transformed} if transformed.get("status") else transformed
-            return {"status": True, **bounds} # Dönüşüm yapılamazsa ham dön
+            return {"status": True, **bounds} 
             
         except Exception as e:
             return {"status": False, "error": f"Bounds error: {e}"}
 
-    def get_sample_data(self):
+    def get_sample_data(self) -> Dict[str, Any]:
         if not self._render_pipeline:
             return {"status": False, "error": "Render pipeline is not initialized."}
 
         try:
-            # PDAL'dan structured array al
             raw_data = self._render_pipeline.arrays[0]
             
-            # Sözlük yapısına çevir
             extracted_data = {
                 "x": raw_data["X"],
                 "y": raw_data["Y"],
@@ -89,7 +100,6 @@ class LasLazReader(IDataReader):
                 "count": len(raw_data["X"])
             }
 
-            # Ek kanalları kontrol et
             dims = raw_data.dtype.names
             if "Intensity" in dims:
                 extracted_data["intensity"] = raw_data["Intensity"]
@@ -100,27 +110,10 @@ class LasLazReader(IDataReader):
             if "Classification" in dims:
                 extracted_data["classification"] = raw_data["Classification"]
 
-            # RenderUtils ile veriyi seyrelt (Downsample)
             vis_data = RenderUtils.downsample(extracted_data)
             vis_data["status"] = True
-            
             return vis_data
 
         except Exception as e:
-            # Hatayı yakala ve string olarak döndür
             import traceback
             return {"status": False, "error": f"Sampling Error: {str(e)}\n{traceback.format_exc()}"}
-
-    def get_summary_metadata(self, full_metadata:Dict):
-        # (Mevcut kodun aynısı kalabilir)
-        try:
-            readers_las = full_metadata.get("metadata", {}).get("metadata", {}).get("readers.las", {})
-            return {
-                "status": True,
-                "points" : readers_las.get("count", "None"),
-                "software_id": readers_las.get("software_id", "None"),
-                "crs_name": readers_las.get("srs", {}).get("json", {}).get("name"),
-                "is_compressed": readers_las.get("compressed", "None")
-            }
-        except Exception as e:
-            return {"status": False, "error": str(e)}

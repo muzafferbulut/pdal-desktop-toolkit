@@ -1,6 +1,8 @@
+from data.data_handler import IBasicReader, IMetadataExtractor, IDataSampler
 from PyQt5.QtCore import QObject, pyqtSignal
-from data.data_handler import IDataReader
 from core.logger import Logger
+from typing import Union
+import traceback
 
 class ReaderWorker(QObject):
 
@@ -8,27 +10,34 @@ class ReaderWorker(QObject):
     error = pyqtSignal(str)
     progress = pyqtSignal(int)
 
-    def __init__(self, file_path:str, reader:IDataReader, logger:Logger):
+    def __init__(self, 
+                 file_path:str, 
+                 basic_reader: IBasicReader,
+                 metadata_extractor: IMetadataExtractor,
+                 data_sampler: IDataSampler, 
+                 logger: Logger):
+        
         super().__init__()
         self.file_path = file_path
-        self.reader = reader
+        self.basic_reader = basic_reader
+        self.metadata_extractor = metadata_extractor
+        self.data_sampler = data_sampler
         self.logger = logger
 
     def run(self):
         try:
             self.progress.emit(10)
             self.progress.emit(-1)
-            result = self.reader.read(self.file_path)
-
+            result = self.basic_reader.read(self.file_path)
             if result.get("status"):
                 self.progress.emit(25)
-                self.bounds = self.reader.get_bounds()
+                self.bounds = self.data_sampler.get_bounds(self.file_path) 
                 self.progress.emit(47)
-                self.full_metadata = self.reader.get_metadata()
+                self.full_metadata = self.metadata_extractor.get_metadata(self.file_path) 
                 self.progress.emit(60)
-                self.summary_metadata = self.reader.get_summary_metadata(self.full_metadata)
+                self.summary_metadata = self.metadata_extractor.get_summary_metadata(self.full_metadata) 
                 self.progress.emit(75)
-                self.sample_data = self.reader.get_sample_data()
+                self.sample_data = self.data_sampler.get_sample_data() 
                 self.progress.emit(100)
                 self.finished.emit(self.file_path, self.bounds, self.full_metadata, self.summary_metadata, self.sample_data)
             else:
