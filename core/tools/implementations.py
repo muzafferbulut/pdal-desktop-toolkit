@@ -39,3 +39,21 @@ class RangeFilter(BaseTool):
             "type": "filters.range",
             "limits": str(params.get("limits", "Classification![7:7]"))
         }
+    
+@register_tool
+class DecimationFilter(BaseTool):
+    name = "Decimation Filter"
+    group = "Sampling"
+    description = (
+        "Keeps every Nth point from the cloud, effectively downsampling it."
+        "Use this for quick visualization of large datasets."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {"step": 10}
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.decimation",
+            "step": int(params.get("step", 1)) # step değeri int olmalıdır
+        }
