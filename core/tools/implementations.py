@@ -57,3 +57,27 @@ class DecimationFilter(BaseTool):
             "type": "filters.decimation",
             "step": int(params.get("step", 1)) # step değeri int olmalıdır
         }
+    
+@register_tool
+class SmrfFilter(BaseTool):
+    name = "SMRF Filter (Ground)"
+    group = "Classification"
+    description = (
+        "Simple Morphological Filter (Pingel et al., 2013). "
+        "It classifies ground points by comparing elevations against an interpolated surface."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "slope": 0.2,       # Maksimum zemin eğimi (derece değil)
+            "threshold": 0.15,  # Toprak yüzeyinden maksimum dikey mesafe
+            "window": 18.0      # Filtre pencere boyutu (yaklaşık nesne boyutu)
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.smrf",
+            "slope": float(params.get("slope", 0.2)),
+            "threshold": float(params.get("threshold", 0.15)),
+            "window": float(params.get("window", 18.0))
+        }
