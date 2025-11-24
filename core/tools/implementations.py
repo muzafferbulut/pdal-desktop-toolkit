@@ -81,3 +81,27 @@ class SmrfFilter(BaseTool):
             "threshold": float(params.get("threshold", 0.15)),
             "window": float(params.get("window", 18.0))
         }
+    
+@register_tool
+class PmfFilter(BaseTool):
+    name = "PMF Filter (Ground)"
+    group = "Classification" 
+    description = (
+        "Progressive Morphological Filter (Zhang et al., 2016). "
+        "It classifies ground points using a progressive window size and threshold."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "max_window_size": 33,  # Maksimum pencere boyutu (tek sayı olmalı)
+            "slope": 1.0,           # Maksimum zemin eğimi
+            "max_distance": 2.0     # Maksimum dikey mesafe
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.pmf",
+            "max_window_size": int(params.get("max_window_size", 33)), 
+            "slope": float(params.get("slope", 1.0)),
+            "max_distance": float(params.get("max_distance", 2.0))
+        }
