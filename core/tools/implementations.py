@@ -5,9 +5,9 @@ from typing import Dict, Any
 @register_tool
 class OutlierFilter(BaseTool):
     name = "Outlier Filter"
-    group = "Data Cleaning"
+    group = "Noise/Outlier"
     description = (
-        "Removes noise using statistical analysis (Mean/Stdev). "
+        "Classify noise using statistical analysis (Mean/Stdev). "
         "Useful for cleaning up isolated points in the cloud."
     )
 
@@ -25,7 +25,7 @@ class OutlierFilter(BaseTool):
 @register_tool
 class RangeFilter(BaseTool):
     name = "Range Filter"
-    group = "Data Cleaning"
+    group = "Data Manipulation"
     description = (
         "Keeps points that fall within specific criteria. "
         "Use 'Classification![7:7]' to remove noise, or 'Z[0:100]' for elevation."
@@ -55,7 +55,7 @@ class DecimationFilter(BaseTool):
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "type": "filters.decimation",
-            "step": int(params.get("step", 1)) # step değeri int olmalıdır
+            "step": int(params.get("step", 1))
         }
     
 @register_tool
@@ -63,15 +63,15 @@ class SmrfFilter(BaseTool):
     name = "SMRF Filter (Ground)"
     group = "Classification"
     description = (
-        "Simple Morphological Filter (Pingel et al., 2013). "
+        "Simple Morphological Filter. "
         "It classifies ground points by comparing elevations against an interpolated surface."
     )
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
-            "slope": 0.2,       # Maksimum zemin eğimi (derece değil)
-            "threshold": 0.15,  # Toprak yüzeyinden maksimum dikey mesafe
-            "window": 18.0      # Filtre pencere boyutu (yaklaşık nesne boyutu)
+            "slope": 0.2,
+            "threshold": 0.15,
+            "window": 18.0
         }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -87,15 +87,15 @@ class PmfFilter(BaseTool):
     name = "PMF Filter (Ground)"
     group = "Classification" 
     description = (
-        "Progressive Morphological Filter (Zhang et al., 2016). "
+        "Progressive Morphological Filter."
         "It classifies ground points using a progressive window size and threshold."
     )
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
-            "max_window_size": 33,  # Maksimum pencere boyutu (tek sayı olmalı)
-            "slope": 1.0,           # Maksimum zemin eğimi
-            "max_distance": 2.0     # Maksimum dikey mesafe
+            "max_window_size": 33, 
+            "slope": 1.0, 
+            "max_distance": 2.0 
         }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -117,8 +117,8 @@ class DbscanFilter(BaseTool):
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
-            "min_points": 5,      # Bir küme oluşturmak için gereken minimum nokta sayısı (int)
-            "eps": 0.5            # Komşuluk için maksimum mesafe (float, metre cinsinden)
+            "min_points": 5, 
+            "eps": 0.5 
         }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -139,19 +139,17 @@ class CsfFilter(BaseTool):
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
-            "resolution": 1.0,           # Kumaşın ızgara çözünürlüğü (float)
-            "class_threshold": 0.5,      # Sınıflandırma eşiği (float)
-            "cloth_resolution": 0.5,     # Kumaş simülasyonu hassasiyeti (float)
-            "time_step": 0.65            # Simülasyon zaman adımı (float)
-        }
+        "resolution": 1.0,
+        "threshold": 0.5,
+        "rigidness": 2
+    }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "type": "filters.csf",
             "resolution": float(params.get("resolution", 1.0)),
-            "class_threshold": float(params.get("class_threshold", 0.5)),
-            "cloth_resolution": float(params.get("cloth_resolution", 0.5)),
-            "time_step": float(params.get("time_step", 0.65))
+            "threshold": float(params.get("threshold", 0.5)),
+            "rigidness": int(params.get("rigidness", 2))
         }
 
 @register_tool
@@ -164,12 +162,9 @@ class IqrFilter(BaseTool):
     )
 
     def get_default_params(self) -> Dict[str, Any]:
-        """
-        IQR filtresi için varsayılan parametreler: Z boyutunda 1.5 çarpanı.
-        """
         return {
-            "dimension": "Z",  # Hangi boyutta uygulanacağı
-            "k": 1.5           # IQR çarpanı (genellikle 1.5 kullanılır)
+            "dimension": "Z",
+            "k": 1.5
         }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -195,7 +190,371 @@ class VoxelDownsizeFilter(BaseTool):
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "type": "filters.voxeldownsize",
-            # PDAL'da bu parametre 'cell' olarak geçer.
             "cell": float(params.get("cell_size", 0.5)) 
         }
+
+@register_tool
+class NormalFilter(BaseTool):
+    name = "Normal Calculation"
+    group = "Feature Extraction"
+    description = (
+        "Calculates the normal vector (NormalX, NormalY, NormalZ) for each point "
+        "based on its k-nearest neighbors. Essential for surface analysis and modeling."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "knn": 10
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.normal",
+            "knn": int(params.get("knn", 10)),
+        }
     
+@register_tool
+class EigenvaluesFilter(BaseTool):
+    name = "Eigenvalues Calculation"
+    group = "Feature Extraction" 
+    description = (
+        "Calculates the eigenvalues (Lambda1, Lambda2, Lambda3) of the covariance "
+        "matrix based on k-nearest neighbors. Used to determine local geometry features."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "knn": 10
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.eigenvalues",
+            "knn": int(params.get("knn", 10)),
+        }
+
+@register_tool
+class ExpressionFilter(BaseTool):
+    name = "Expression Filter"
+    group = "Data Manipulation"
+    description = (
+        "Passes only points that satisfy a mathematical/logical expression (e.g., "
+        "'Z > 100' or 'Classification == 2'). Offers maximum flexibility."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "expression": "Z > 100"
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.expression",
+            "expression": str(params.get("expression", "Z > 100"))
+        }
+    
+@register_tool
+class SetCRSFilter(BaseTool):
+    name = "Set CRS"
+    group = "Geo-Processing"
+    description = (
+        "Manually sets the Coordinate Reference System (CRS) for unreferenced data. "
+        "This tool only adds the CRS metadata (in_srs) to the points, no coordinate transformation is performed."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "in_srs": "EPSG:3857"
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.reprojection",
+            "in_srs": params.get("in_srs", 3857),
+            "out_srs": params.get("in_srs", 3857)
+        }
+
+@register_tool
+class ReprojectionFilter(BaseTool):
+    name = "Reprojection"
+    group = "Geo-Processing"
+    description = (
+        "Transforms point cloud data from one Coordinate Reference System (CRS) "
+        "to another, typically defined by an EPSG code (e.g., EPSG:4326)."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "out_srs": "EPSG:3857"
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.reprojection",
+            "out_srs": params.get("out_srs", "EPSG:3857")
+        }
+    
+@register_tool
+class SupervoxelFilter(BaseTool):
+    name = "Supervoxel Segmentation"
+    group = "Segmentation"
+    description = (
+        "Segments the point cloud into perceptually homogeneous 'supervoxels'. "
+        "Useful for advanced object segmentation and scene understanding."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "Params": "First filters.normal should work",
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.supervoxel",
+        }
+    
+@register_tool
+class FarthestPointSamplingFilter(BaseTool):
+    name = "FPS Filter (Sampling)"
+    group = "Sampling"
+    description = (
+        "Farthest Point Sampling (FPS). Selects a subset of points that "
+        "maximizes the distance between selected points, ensuring a uniform "
+        "and representative sampling of the whole cloud. Requires a sample size."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {"sample_size": 10000}
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.fps",
+            "count": int(params.get("sample_size", 10000)) 
+        }
+    
+@register_tool
+class FerryFilter(BaseTool):
+    name = "Ferry Filter (Copy Dim)"
+    group = "Data Manipulation"
+    description = (
+        "Copies data from a source dimension to a target dimension. "
+        "Useful for persisting intermediate results or transferring attributes (e.g., 'ClusterID => Classification')."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "source_dimension": "Z",    
+            "target_dimension": "Z_COPY"
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        source = str(params.get("source_dimension", "Z"))
+        target = str(params.get("target_dimension", "Z_COPY"))
+        ferry_string = f"{source} => {target}"
+
+        return {
+            "type": "filters.ferry",
+            "dimensions": ferry_string
+        }
+    
+@register_tool
+class CropFilter(BaseTool):
+    name = "Crop Filter"
+    group = "Geo-Processing"
+    description = (
+        "Filters points inside or outside a defined bounding box or a polygon. "
+        "The bounds parameter must be given in the PDAL format: "
+        "'([minx, maxx], [miny, maxy], [minz, maxz])'."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "bounds_string": "([0, 100], [0, 100], [0, 50])" 
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.crop",
+            "bounds": str(params.get("bounds_string", "([0, 100], [0, 100], [0, 50])"))
+        } 
+    
+@register_tool
+class AssignFilter(BaseTool):
+    name = "Assign Filter"
+    group = "Data Manipulation"
+    description = (
+        "Assigns a single value to a dimension or dimension range defined by a formula (e.g., "
+        "'Classification[0:2]=1' to set Class 0 and 1 to 1, or 'Z=Z*2.0' to scale Z)."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "assignment_string": "Classification[0:2]=1" 
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.assign",
+            "assignment": str(params.get("assignment_string", "Classification[0:2]=1"))
+        }
+    
+@register_tool
+class LofFilter(BaseTool):
+    name = "LOF Filter (Noise)"
+    group = "Noise/Outlier"
+    description = (
+        "Local Outlier Factor (LOF) filter. Detects local outliers by comparing "
+        "the local density of a point with the local densities of its neighbors. "
+        "Effective for varying-density point clouds."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "min_pts": 10 
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.lof",
+            "min_pts": int(params.get("min_pts", 10))
+        }
+    
+@register_tool
+class DemFilter(BaseTool):
+    name = "DEM Filter"
+    group = "Geo-Processing"
+    description = (
+        "Filters points based on a Digital Elevation Model (DEM) raster file, "
+        "or interpolates the DEM elevation to a point dimension. "
+        "Requires the path to a GDAL-readable raster file."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "raster_file_path": "path/to/your/dem.tif", 
+            "output_dimension": "DEM_Elevation",        
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.dem",
+            "raster": str(params.get("raster_file_path", "path/to/your/dem.tif")),
+            "dimension": str(params.get("output_dimension", "DEM_Elevation")),
+        }
+    
+@register_tool
+class StatsFilter(BaseTool):
+    name = "Statistics Filter"
+    group = "Data Manipulation"
+    description = (
+        "Computes basic statistics (min, max, mean, standard deviation, etc.) "
+        "for all dimensions in the point cloud. Primarily used for quality control "
+        "and data summarization."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {} 
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.stats"
+        }
+    
+@register_tool
+class SortFilter(BaseTool):
+    name = "Sort Filter"
+    group = "Data Manipulation"
+    description = (
+        "Sorts the points in the cloud based on the values of a specified dimension "
+        "(e.g., 'Z' for elevation, 'Intensity' for intensity values)."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "dimension_to_sort": "Z"
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.sort",
+            "dimension": str(params.get("dimension_to_sort", "Z"))
+        }
+    
+@register_tool
+class MergeFilter(BaseTool):
+    name = "Merge Filter"
+    group = "Data Manipulation"
+    description = (
+        "Merges point cloud data from two or more incoming sources (e.g., from different readers) "
+        "into a single stream for subsequent processing. Primarily used in complex pipeline setups."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {} 
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.merge"
+        }
+
+@register_tool
+class ClusterFilter(BaseTool):
+    name = "Cluster Filter (Euclidean)"
+    group = "Segmentation"
+    description = (
+        "Performs Euclidean distance clustering. Assigns a unique ClusterID to "
+        "groups of points that are within the specified distance tolerance."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "tolerance": 1.0, 
+            "min_points": 10 
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.cluster",
+            "tolerance": float(params.get("tolerance", 1.0)),
+            "min_points": int(params.get("min_points", 10))
+        }
+
+@register_tool
+class HeadFilter(BaseTool):
+    name = "Head Filter (First N)"
+    group = "Sampling"
+    description = (
+        "Returns the first N points from the beginning of the point cloud stream. "
+        "Useful for quick file inspection and debugging."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "count": 1000
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.head",
+            "count": int(params.get("count", 1000))
+        }
+
+@register_tool
+class TailFilter(BaseTool):
+    name = "Tail Filter (Last N)"
+    group = "Sampling"
+    description = (
+        "Returns the last N points from the end of the point cloud stream. "
+        "Useful for inspecting the end of large data files."
+    )
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "count": 1000
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.tail",
+            "count": int(params.get("count", 1000))
+        }
