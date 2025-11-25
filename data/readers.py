@@ -50,12 +50,32 @@ class LasLazReader(IBasicReader, IMetadataExtractor, IDataSampler):
     def get_summary_metadata(self, full_metadata:Dict) -> Dict[str, Any]:
         try:
             readers_las = full_metadata.get("metadata", {}).get("metadata", {}).get("readers.las", {})
+            spatial_ref = readers_las.get("spatialreference", "")
+            crs_result = GeoUtils.parse_crs_info(spatial_ref)
+            epsg_code = crs_result.get("epsg")
+            unit_name = crs_result.get("unit", "N/A")
+
+            minx = readers_las.get('minx')
+            maxx = readers_las.get('maxx')
+            miny = readers_las.get('miny')
+            maxy = readers_las.get('maxy')
+            minz = readers_las.get('minz')
+            maxz = readers_las.get('maxz')
+            x_range = f"[{minx:.2f} to {maxx:.2f}]" if minx is not None and maxx is not None else "N/A"
+            y_range = f"[{miny:.2f} to {maxy:.2f}]" if miny is not None and maxy is not None else "N/A"
+            z_range = f"[{minz:.2f} to {maxz:.2f}]" if minz is not None and maxz is not None else "N/A"
+            
             return {
                 "status": True,
-                "points" : readers_las.get("count", "None"),
-                "software_id": readers_las.get("software_id", "None"),
-                "crs_name": readers_las.get("srs", {}).get("json", {}).get("name"),
-                "is_compressed": readers_las.get("compressed", "None")
+                "points" : readers_las.get("count", "N/A"),
+                "software_id": readers_las.get("software_id", "N/A"),
+                "is_compressed": readers_las.get("compressed", "N/A"),
+                "crs_name": readers_las.get("srs", {}).get("json", {}).get("name", "N/A"),
+                "epsg": epsg_code if epsg_code else "N/A",
+                "unit": unit_name, 
+                "x_range": x_range,
+                "y_range": y_range,
+                "z_range": z_range,
             }
         except Exception as e:
             return {"status": False, "error": str(e)}
