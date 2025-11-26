@@ -504,3 +504,27 @@ class ElevationModel(BaseTool):
         return {
             "type": "filters.dem"
         }
+    
+@register_tool
+class StatsFilter(BaseTool):
+    name = "Statistics"
+    group = "Geo-Processing"
+    description = "Calculates statistical information (min, max, mean, etc.) for dimensions."
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "dimensions": "", 
+            "enumerate": "Classification" 
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        config = {"type": "filters.stats"}
+        dims = str(params.get("dimensions", "")).strip()
+        enums = str(params.get("enumerate", "Classification")).strip()
+        
+        if dims:
+            config["dimensions"] = dims
+        if enums:
+            config["enumerate"] = enums
+            
+        return config

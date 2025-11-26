@@ -6,6 +6,7 @@ from core.pipeline_builder import PipelineBuilder
 from core.filter_worker import FilterWorker
 from core.export_worker import ExportWorker
 from core.model_worker import ModelWorker
+from core.stats_worker import StatsWorker
 from core.merge_worker import MergeWorker
 from core.read_worker import ReaderWorker
 from typing import Dict, Any, Optional
@@ -18,6 +19,8 @@ class ApplicationController(QObject):
     It processes requests from MainWindow and notifies the UI via signals.
     """
     
+    stats_ready_signal = pyqtSignal(str, dict)
+
     # --- Signals from Controller to MainWindow ---
     progress_update_signal = pyqtSignal(int)
     log_error_signal = pyqtSignal(str)
@@ -58,6 +61,7 @@ class ApplicationController(QObject):
         self.reader_thread = None
         self.filter_thread = None
         self.export_thread = None
+        self.stats_thread = None
 
     def start_merge_process(self, file_paths: list):
         if not file_paths:
@@ -479,3 +483,37 @@ class ApplicationController(QObject):
         self.progress_update_signal.emit(100)
         self.ui_status_message_signal.emit(f"Model generated successfully: {os.path.basename(file_path)}", 5000)
         self.logger.info(f"{message} Saved to: {file_path}")
+
+    def start_stats_process(self, file_path: str):
+        context = self._check_and_log_layer(file_path, "Statistics")
+        if not context: return
+
+        pipeline_config = context.get_full_pipeline_json()
+        pipeline_config.append({"type": "filters.stats", "enumerate": "Classification"})
+
+        self.ui_status_message_signal.emit("Calculating statistics...", 0)
+        self.progress_update_signal.emit(10)
+
+        if hasattr(self, 'stats_thread') and self.stats_thread is not None:
+            if self.stats_thread.isRunning():
+                self.stats_thread.quit()
+                self.stats_thread.wait()
+
+        self.stats_thread = QThread()
+        self.stats_worker = StatsWorker(file_path, pipeline_config)
+        self.stats_worker.moveToThread(self.stats_thread)
+        
+        self.stats_thread.started.connect(self.stats_worker.run)
+        self.stats_worker.finished.connect(self._handle_stats_success)
+        self.stats_worker.error.connect(self._handle_worker_error)
+        self.stats_worker.progress.connect(self.progress_update_signal.emit)
+        
+        self.stats_worker.finished.connect(self.stats_thread.quit)
+        self.stats_worker.finished.connect(self.stats_worker.deleteLater)
+        self.stats_thread.finished.connect(self.stats_thread.deleteLater)
+        self.stats_thread.start()
+
+    def _handle_stats_success(self, file_path: str, stats_data: dict):
+        self.progress_update_signal.emit(100)
+        self.ui_status_message_signal.emit("Statistics calculation completed.", 3000)
+        self.stats_ready_signal.emit(file_path, stats_data)

@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,
             QDockWidget,QTabWidget,QFileDialog,QProgressBar,QMessageBox,)
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor
 from core.application_controller import ApplicationController
+from ui.stats_result_dialog import StatsResultDialog
 from ui.data_sources_panel import DataSourcesPanel
 from ui.tab_viewers import GISMapView, ThreeDView
 from ui.filter_dialog import FilterParamsDialog
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
         self.controller.progress_update_signal.connect(self._handle_progress)
         self.controller.log_error_signal.connect(self._handle_controller_error)
         self.controller.ui_status_message_signal.connect(self.statusBar().showMessage)
+        self.controller.stats_ready_signal.connect(self._show_stats_dialog)
         
         # Data Signals
         self.controller.file_load_success_signal.connect(self._handle_controller_file_load)
@@ -229,6 +231,10 @@ class MainWindow(QMainWindow):
         
         if tool_name == "Elevation Model":
             self._on_toolbar_model()
+            return
+        
+        if tool_name == "Statistics":
+            self._on_toolbar_statistics()
             return
         
         dialog = FilterParamsDialog(tool_name, self)
@@ -464,3 +470,15 @@ class MainWindow(QMainWindow):
             params = dialog.get_params()
             self.progressBar.show()
             self.controller.start_model_process(file_path, params)
+
+    def _on_toolbar_statistics(self):
+        file_path = self._get_active_layer_path()
+        if file_path:
+            self.progressBar.show()
+            self.controller.start_stats_process(file_path)
+
+    def _show_stats_dialog(self, file_path: str, stats_data: dict):
+        self.progressBar.hide()
+        file_name = os.path.basename(file_path)
+        dialog = StatsResultDialog(file_name, stats_data, self)
+        dialog.exec_()
