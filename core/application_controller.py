@@ -5,6 +5,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from core.pipeline_builder import PipelineBuilder
 from core.filter_worker import FilterWorker
 from core.export_worker import ExportWorker
+from core.model_worker import ModelWorker
 from core.merge_worker import MergeWorker
 from core.read_worker import ReaderWorker
 from typing import Dict, Any, Optional
@@ -429,3 +430,52 @@ class ApplicationController(QObject):
             error_msg = result.get("error")
             self.logger.error(f"Metadata save failed: {error_msg}")
             self.log_error_signal.emit(f"Could not save metadata:\n{error_msg}")
+
+    def start_model_process(self, file_path: str, params: dict):
+        context = self._check_and_log_layer(file_path, "Generating Model")
+        if not context:
+            return
+
+        save_path = params.get("filename")
+        resolution = params.get("resolution")
+        output_type = params.get("output_type")
+        pipeline_config = context.get_full_pipeline_json()
+        writer_stage = {
+            "type": "writers.gdal",
+            "filename": save_path,
+            "resolution": resolution,
+            "output_type": output_type,
+            "radius": resolution * 1.414
+        }
+
+        if output_type == "idw":
+            writer_stage["power"] = 2.0
+
+        pipeline_config.append(writer_stage)
+
+        self.ui_status_message_signal.emit("Generating Elevation Model...", 0)
+        self.progress_update_signal.emit(10)
+        self.logger.info(f"Starting model generation ({output_type.upper()}) -> {save_path}")
+
+        if hasattr(self, 'model_thread') and self.model_thread is not None:
+            if self.model_thread.isRunning():
+                self.model_thread.quit()
+                self.model_thread.wait()
+
+        self.model_thread = QThread()
+        self.model_worker = ModelWorker(pipeline_config, save_path) 
+        self.model_worker.moveToThread(self.model_thread)
+        self.model_thread.started.connect(self.model_worker.run)
+        self.model_worker.finished.connect(self._handle_model_success) 
+        self.model_worker.error.connect(self._handle_worker_error)
+        self.model_worker.progress.connect(self.progress_update_signal.emit)
+        self.model_worker.finished.connect(self.model_thread.quit)
+        self.model_worker.finished.connect(self.model_worker.deleteLater)
+        self.model_thread.finished.connect(self.model_thread.deleteLater)
+        
+        self.model_thread.start()
+
+    def _handle_model_success(self, message: str, file_path: str):
+        self.progress_update_signal.emit(100)
+        self.ui_status_message_signal.emit(f"Model generated successfully: {os.path.basename(file_path)}", 5000)
+        self.logger.info(f"{message} Saved to: {file_path}")

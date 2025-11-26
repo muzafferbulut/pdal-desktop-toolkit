@@ -9,6 +9,7 @@ from core.themes.manager import ThemeManager
 from ui.metadata_panel import MetadataPanel
 from ui.toolbox_panel import ToolboxPanel
 from ui.merge_dialog import MergeDialog
+from ui.model_dialog import ModelDialog
 from ui.crop_dialog import CropDialog
 from core.logger import Logger
 from typing import Optional
@@ -224,6 +225,10 @@ class MainWindow(QMainWindow):
 
         if tool_name == "Merge":
             self._on_toolbar_merge()
+            return
+        
+        if tool_name == "Elevation Model":
+            self._on_toolbar_model()
             return
         
         dialog = FilterParamsDialog(tool_name, self)
@@ -447,3 +452,15 @@ class MainWindow(QMainWindow):
             selected_files = dialog.get_files()
             self.progressBar.show()
             self.controller.start_merge_process(selected_files)
+
+    def _on_toolbar_model(self):
+        """Yükseklik modeli (DEM/DSM) oluşturma penceresini açar."""
+        file_path = self._get_active_layer_path()
+        if not file_path:
+            return
+
+        dialog = ModelDialog(self)
+        if dialog.exec_():
+            params = dialog.get_params()
+            self.progressBar.show()
+            self.controller.start_model_process(file_path, params)

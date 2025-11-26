@@ -490,3 +490,17 @@ class MergeFilter(BaseTool):
         return {
             "type": "filters.merge"
         }
+    
+@register_tool
+class ElevationModel(BaseTool):
+    name = "Elevation Model"
+    group = "Geo-Processing"
+    description = "Generate elevation model from a file."
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {}
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.dem"
+        }
