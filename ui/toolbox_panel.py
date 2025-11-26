@@ -51,7 +51,7 @@ class ToolboxPanel(QWidget):
             cat_item.setIcon(0, cat_icon)
             cat_item.setData(0, Qt.UserRole, "category")
             self.tree.addTopLevelItem(cat_item)
-            cat_item.setExpanded(True) 
+            cat_item.setExpanded(False) 
 
             for tool_cls in tools_in_cat:
                 tool_name = tool_cls.name

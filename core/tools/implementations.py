@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 @register_tool
 class OutlierFilter(BaseTool):
-    name = "Outlier Filter"
+    name = "Outliers"
     group = "Noise/Outlier"
     description = (
         "Classify noise using statistical analysis (Mean/Stdev). "
@@ -42,7 +42,7 @@ class RangeFilter(BaseTool):
     
 @register_tool
 class DecimationFilter(BaseTool):
-    name = "Decimation Filter"
+    name = "Decimation Sampling"
     group = "Sampling"
     description = (
         "Keeps every Nth point from the cloud, effectively downsampling it."
@@ -60,7 +60,7 @@ class DecimationFilter(BaseTool):
     
 @register_tool
 class SmrfFilter(BaseTool):
-    name = "SMRF Filter (Ground)"
+    name = "SMRF (Ground)"
     group = "Classification"
     description = (
         "Simple Morphological Filter. "
@@ -84,7 +84,7 @@ class SmrfFilter(BaseTool):
     
 @register_tool
 class PmfFilter(BaseTool):
-    name = "PMF Filter (Ground)"
+    name = "PMF (Ground)"
     group = "Classification" 
     description = (
         "Progressive Morphological Filter."
@@ -130,7 +130,7 @@ class DbscanFilter(BaseTool):
     
 @register_tool
 class CsfFilter(BaseTool):
-    name = "CSF Filter (Ground)"
+    name = "CSF (Ground)"
     group = "Classification" 
     description = (
         "Cloth Simulation Filter (Zhang et al., 2016). Highly accurate "
@@ -154,7 +154,7 @@ class CsfFilter(BaseTool):
 
 @register_tool
 class IqrFilter(BaseTool):
-    name = "IQR Filter (Noise)"
+    name = "IQR (Noise)"
     group = "Noise/Outlier"
     description = (
         "Removes outliers using the Interquartile Range (IQR) method. "
@@ -176,7 +176,7 @@ class IqrFilter(BaseTool):
     
 @register_tool
 class VoxelDownsizeFilter(BaseTool):
-    name = "Voxel Downsize Filter"
+    name = "Voxel Downsize"
     group = "Sampling" 
     description = (
         "Reduces the point cloud density using a Voxel Grid. "
@@ -356,31 +356,10 @@ class FerryFilter(BaseTool):
             "type": "filters.ferry",
             "dimensions": ferry_string
         }
-    
-@register_tool
-class CropFilter(BaseTool):
-    name = "Crop Filter"
-    group = "Geo-Processing"
-    description = (
-        "Filters points inside or outside a defined bounding box or a polygon. "
-        "The bounds parameter must be given in the PDAL format: "
-        "'([minx, maxx], [miny, maxy], [minz, maxz])'."
-    )
-
-    def get_default_params(self) -> Dict[str, Any]:
-        return {
-            "bounds_string": "([0, 100], [0, 100], [0, 50])" 
-        }
-
-    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "type": "filters.crop",
-            "bounds": str(params.get("bounds_string", "([0, 100], [0, 100], [0, 50])"))
-        } 
-    
+        
 @register_tool
 class AssignFilter(BaseTool):
-    name = "Assign Filter"
+    name = "Assign"
     group = "Data Manipulation"
     description = (
         "Assigns a single value to a dimension or dimension range defined by a formula (e.g., "
@@ -389,18 +368,18 @@ class AssignFilter(BaseTool):
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
-            "assignment_string": "Classification[0:2]=1" 
+            "value": "Classification[0:2]=1" 
         }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "type": "filters.assign",
-            "assignment": str(params.get("assignment_string", "Classification[0:2]=1"))
+            "value": str(params.get("value", "Classification[0:2]=1"))
         }
     
 @register_tool
 class LofFilter(BaseTool):
-    name = "LOF Filter (Noise)"
+    name = "LOF Filter"
     group = "Noise/Outlier"
     description = (
         "Local Outlier Factor (LOF) filter. Detects local outliers by comparing "
@@ -410,96 +389,18 @@ class LofFilter(BaseTool):
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
-            "min_pts": 10 
+            "minpts": 10 
         }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "type": "filters.lof",
-            "min_pts": int(params.get("min_pts", 10))
+            "minpts": int(params.get("minpts", 10))
         }
     
-@register_tool
-class DemFilter(BaseTool):
-    name = "DEM Filter"
-    group = "Geo-Processing"
-    description = (
-        "Filters points based on a Digital Elevation Model (DEM) raster file, "
-        "or interpolates the DEM elevation to a point dimension. "
-        "Requires the path to a GDAL-readable raster file."
-    )
-
-    def get_default_params(self) -> Dict[str, Any]:
-        return {
-            "raster_file_path": "path/to/your/dem.tif", 
-            "output_dimension": "DEM_Elevation",        
-        }
-
-    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "type": "filters.dem",
-            "raster": str(params.get("raster_file_path", "path/to/your/dem.tif")),
-            "dimension": str(params.get("output_dimension", "DEM_Elevation")),
-        }
-    
-@register_tool
-class StatsFilter(BaseTool):
-    name = "Statistics Filter"
-    group = "Data Manipulation"
-    description = (
-        "Computes basic statistics (min, max, mean, standard deviation, etc.) "
-        "for all dimensions in the point cloud. Primarily used for quality control "
-        "and data summarization."
-    )
-
-    def get_default_params(self) -> Dict[str, Any]:
-        return {} 
-
-    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "type": "filters.stats"
-        }
-    
-@register_tool
-class SortFilter(BaseTool):
-    name = "Sort Filter"
-    group = "Data Manipulation"
-    description = (
-        "Sorts the points in the cloud based on the values of a specified dimension "
-        "(e.g., 'Z' for elevation, 'Intensity' for intensity values)."
-    )
-
-    def get_default_params(self) -> Dict[str, Any]:
-        return {
-            "dimension_to_sort": "Z"
-        }
-
-    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "type": "filters.sort",
-            "dimension": str(params.get("dimension_to_sort", "Z"))
-        }
-    
-@register_tool
-class MergeFilter(BaseTool):
-    name = "Merge Filter"
-    group = "Data Manipulation"
-    description = (
-        "Merges point cloud data from two or more incoming sources (e.g., from different readers) "
-        "into a single stream for subsequent processing. Primarily used in complex pipeline setups."
-    )
-
-    def get_default_params(self) -> Dict[str, Any]:
-        return {} 
-
-    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "type": "filters.merge"
-        }
-
 @register_tool
 class ClusterFilter(BaseTool):
-    name = "Cluster Filter (Euclidean)"
+    name = "Cluster (Euclidean)"
     group = "Segmentation"
     description = (
         "Performs Euclidean distance clustering. Assigns a unique ClusterID to "
