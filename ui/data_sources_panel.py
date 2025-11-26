@@ -156,3 +156,10 @@ class DataSourcesPanel(QWidget):
             root = self.data_tree.invisibleRootItem()
             root.removeChild(item)
             del self.layer_items[file_path]
+    
+    def get_loaded_layers(self) -> dict:
+        layers = {}
+        for path, item in self.layer_items.items():
+            if item.data(0, Qt.UserRole + 1) == "root":
+                layers[path] = item.text(0)
+        return layers

@@ -476,3 +476,17 @@ class CropFilter(BaseTool):
             "type": "filters.crop",
             "bounds": str(params.get("bounds"))
         }
+    
+@register_tool
+class MergeFilter(BaseTool):
+    name = "Merge"
+    group = "Geo-Processing"
+    description = "Merges multiple input files into a single point cloud."
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {}
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.merge"
+        }

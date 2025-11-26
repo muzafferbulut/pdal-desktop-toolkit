@@ -5,6 +5,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from core.pipeline_builder import PipelineBuilder
 from core.filter_worker import FilterWorker
 from core.export_worker import ExportWorker
+from core.merge_worker import MergeWorker
 from core.read_worker import ReaderWorker
 from typing import Dict, Any, Optional
 from core.logger import Logger
@@ -56,6 +57,39 @@ class ApplicationController(QObject):
         self.reader_thread = None
         self.filter_thread = None
         self.export_thread = None
+
+    def start_merge_process(self, file_paths: list):
+        if not file_paths:
+            return
+        
+        virtual_name = "Merged"
+        if virtual_name in self._data_cache:
+            self.handle_remove_layer(virtual_name)
+
+        self.ui_status_message_signal.emit(f"Merging {len(file_paths)} layers...", 0)
+        self.progress_update_signal.emit(10)
+
+        if hasattr(self, 'merge_thread') and self.merge_thread is not None:
+            if self.merge_thread.isRunning():
+                self.merge_thread.quit()
+                self.merge_thread.wait()
+
+        self.merge_thread = QThread()
+        self.merge_worker = MergeWorker(file_paths, output_name=virtual_name)
+        
+        self.merge_worker.moveToThread(self.merge_thread)
+        self.merge_thread.started.connect(self.merge_worker.run)
+    
+        self.merge_worker.finished.connect(self._handle_reader_success)
+        
+        self.merge_worker.error.connect(self._handle_worker_error)
+        self.merge_worker.progress.connect(self.progress_update_signal.emit)
+        
+        self.merge_worker.finished.connect(self.merge_thread.quit)
+        self.merge_worker.finished.connect(self.merge_worker.deleteLater)
+        self.merge_thread.finished.connect(self.merge_thread.deleteLater)
+        
+        self.merge_thread.start()
 
     def _check_and_log_layer(self, file_path: str, operation: str) -> Optional[LayerContext]:
         """Helper method to check layer existence before any operation."""

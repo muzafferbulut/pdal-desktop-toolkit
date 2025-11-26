@@ -8,6 +8,7 @@ from ui.filter_dialog import FilterParamsDialog
 from core.themes.manager import ThemeManager
 from ui.metadata_panel import MetadataPanel
 from ui.toolbox_panel import ToolboxPanel
+from ui.merge_dialog import MergeDialog
 from ui.crop_dialog import CropDialog
 from core.logger import Logger
 from typing import Optional
@@ -220,6 +221,10 @@ class MainWindow(QMainWindow):
         if tool_name == "Crop (BBox)":
             self._on_toolbar_crop()
             return
+
+        if tool_name == "Merge":
+            self._on_toolbar_merge()
+            return
         
         dialog = FilterParamsDialog(tool_name, self)
         
@@ -429,3 +434,16 @@ class MainWindow(QMainWindow):
         if params.get("bounds"):
             self.progressBar.show()
             self.controller.start_filter_process(file_path, "Crop (BBox)", params)
+
+    def _on_toolbar_merge(self):
+        layers = self.data_sources_panel.get_loaded_layers()
+        
+        if len(layers) < 2:
+            self.logger.warning("Not enough layers to merge. Load at least 2 files.")
+            return
+
+        dialog = MergeDialog(layers, self)
+        if dialog.exec_():
+            selected_files = dialog.get_files()
+            self.progressBar.show()
+            self.controller.start_merge_process(selected_files)
