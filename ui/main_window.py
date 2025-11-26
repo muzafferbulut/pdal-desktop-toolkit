@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,QDockWidget,
-    QTabWidget,QFileDialog,QProgressBar,QMessageBox,)
+from PyQt5.QtWidgets import (QMainWindow,QWidget,QAction,QPlainTextEdit,
+            QDockWidget,QTabWidget,QFileDialog,QProgressBar,QMessageBox,)
 from PyQt5.QtGui import QIcon, QColor, QTextCharFormat, QTextCursor
 from core.application_controller import ApplicationController
 from ui.data_sources_panel import DataSourcesPanel
@@ -8,6 +8,7 @@ from ui.filter_dialog import FilterParamsDialog
 from core.themes.manager import ThemeManager
 from ui.metadata_panel import MetadataPanel
 from ui.toolbox_panel import ToolboxPanel
+from ui.crop_dialog import CropDialog
 from core.logger import Logger
 from typing import Optional
 from PyQt5.QtCore import Qt
@@ -216,6 +217,10 @@ class MainWindow(QMainWindow):
             self.logger.warning("Please select a layer from Data Sources first.")
             return
         
+        if tool_name == "Crop (BBox)":
+            self._on_toolbar_crop()
+            return
+        
         dialog = FilterParamsDialog(tool_name, self)
         
         if dialog.exec_():
@@ -374,3 +379,53 @@ class MainWindow(QMainWindow):
         self.toolbox_panel.tool_selected.connect(self._handle_tool_selection)
 
         self.addDockWidget(Qt.RightDockWidgetArea, self.toolbox_dock)
+
+    def _on_toolbar_crop(self):
+        """Crop işlemini başlatır."""
+        current_file = self._get_active_layer_path()
+        if not current_file:
+            return
+
+        self.crop_dialog = CropDialog(self)
+        
+        self.crop_dialog.draw_requested.connect(self._activate_crop_drawing)
+        self.crop_dialog.finished.connect(self._on_crop_dialog_finished)
+        
+        if self.crop_dialog.exec_():
+            params = self.crop_dialog.get_params()
+            if params.get("bounds"):
+                self.progressBar.show()
+                self.controller.start_filter_process(current_file, "Crop (BBox)", params)
+        
+        self.three_d_view.disable_crop_gizmo()
+
+    def _activate_crop_drawing(self):
+        """Dialog'dan çizim isteği geldiğinde çalışır."""
+        self.tab_widget.setCurrentWidget(self.three_d_view)
+        
+        def on_box_change(box):
+            self.crop_dialog.update_bounds_from_gizmo(box.bounds)
+
+        self.three_d_view.enable_crop_gizmo(callback=on_box_change)
+        
+    def _on_crop_dialog_finished(self, result):
+        self.three_d_view.disable_crop_gizmo()
+
+    def _on_toolbar_crop(self):
+        current_file = self._get_active_layer_path()
+        if not current_file:
+            return
+
+        self.crop_dialog = CropDialog(self)
+        self.crop_dialog.setModal(False)
+        self.crop_dialog.draw_requested.connect(self._activate_crop_drawing)
+        self.crop_dialog.finished.connect(self._on_crop_dialog_finished)
+        self.crop_dialog.accepted.connect(lambda: self._start_crop_operation(current_file))
+        self.crop_dialog.show()
+
+    def _start_crop_operation(self, file_path):
+        params = self.crop_dialog.get_params()
+        
+        if params.get("bounds"):
+            self.progressBar.show()
+            self.controller.start_filter_process(file_path, "Crop (BBox)", params)

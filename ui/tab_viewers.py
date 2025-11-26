@@ -154,3 +154,24 @@ class ThreeDView(QFrame):
                 colors = colors['bottom'],
                 top = colors['top']
             )
+
+    def enable_crop_gizmo(self, bounds=None, callback=None):
+        if not self.plotter:
+            return
+
+        self.plotter.clear_box_widgets()
+        
+        if bounds is None and self.current_mesh:
+            bounds = self.current_mesh.bounds
+
+        if bounds:
+            self.plotter.add_box_widget(
+                callback=callback,
+                bounds=bounds,
+                color="orange",
+                rotation_enabled=False 
+            )
+    
+    def disable_crop_gizmo(self):
+        if self.plotter:
+            self.plotter.clear_box_widgets()

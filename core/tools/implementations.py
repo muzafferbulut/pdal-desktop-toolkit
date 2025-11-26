@@ -459,3 +459,20 @@ class TailFilter(BaseTool):
             "type": "filters.tail",
             "count": int(params.get("count", 1000))
         }
+    
+@register_tool
+class CropFilter(BaseTool):
+    name = "Crop (BBox)"
+    group = "Geo-Processing"
+    description = "Crops the point cloud using a bounding box."
+
+    def get_default_params(self) -> Dict[str, Any]:
+        return {
+            "bounds": "([0, 100], [0, 100])"
+        }
+
+    def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "type": "filters.crop",
+            "bounds": str(params.get("bounds"))
+        }
