@@ -75,9 +75,12 @@ class ApplicationController(QObject):
         self.progress_update_signal.emit(10)
 
         if hasattr(self, 'merge_thread') and self.merge_thread is not None:
-            if self.merge_thread.isRunning():
-                self.merge_thread.quit()
-                self.merge_thread.wait()
+            try:
+                if self.merge_thread.isRunning():
+                    self.merge_thread.quit()
+                    self.merge_thread.wait()
+            except RuntimeError:
+                pass
 
         self.merge_thread = QThread()
         self.merge_worker = MergeWorker(file_paths, output_name=virtual_name)
@@ -369,9 +372,12 @@ class ApplicationController(QObject):
         self.ui_status_message_signal.emit("Exporting layer...", 0)
 
         if hasattr(self, 'export_thread') and self.export_thread is not None:
-            if self.export_thread.isRunning():
-                self.export_thread.quit()
-                self.export_thread.wait()
+            try:
+                if self.export_thread.isRunning():
+                    self.export_thread.quit()
+                    self.export_thread.wait()
+            except RuntimeError:
+                pass
 
         self.export_thread = QThread()
         self.export_worker = ExportWorker(save_path, pipeline_config)
@@ -462,9 +468,12 @@ class ApplicationController(QObject):
         self.logger.info(f"Starting model generation ({output_type.upper()}) -> {save_path}")
 
         if hasattr(self, 'model_thread') and self.model_thread is not None:
-            if self.model_thread.isRunning():
-                self.model_thread.quit()
-                self.model_thread.wait()
+            try:
+                if self.model_thread.isRunning():
+                    self.model_thread.quit()
+                    self.model_thread.wait()
+            except RuntimeError:
+                pass
 
         self.model_thread = QThread()
         self.model_worker = ModelWorker(pipeline_config, save_path) 
@@ -495,9 +504,12 @@ class ApplicationController(QObject):
         self.progress_update_signal.emit(10)
 
         if hasattr(self, 'stats_thread') and self.stats_thread is not None:
-            if self.stats_thread.isRunning():
-                self.stats_thread.quit()
-                self.stats_thread.wait()
+            try:
+                if self.stats_thread.isRunning():
+                    self.stats_thread.quit()
+                    self.stats_thread.wait()
+            except RuntimeError:
+                pass
 
         self.stats_thread = QThread()
         self.stats_worker = StatsWorker(file_path, pipeline_config)

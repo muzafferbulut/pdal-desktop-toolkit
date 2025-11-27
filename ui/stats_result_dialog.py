@@ -4,6 +4,7 @@ from PyQt5.QtGui import QFont
 import json
 
 class StatsResultDialog(QDialog):
+    
     def __init__(self, file_name, stats_data, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Statistics: {file_name}")
@@ -52,13 +53,19 @@ class StatsResultDialog(QDialog):
         for row, stat in enumerate(stats_list):
             name = stat.get("name", "N/A")
             try:
-                table.setItem(row, 0, QTableWidgetItem(name))
-                table.setItem(row, 1, QTableWidgetItem(f"{stat.get('min', 0):.4f}"))
-                table.setItem(row, 2, QTableWidgetItem(f"{stat.get('max', 0):.4f}"))
-                table.setItem(row, 3, QTableWidgetItem(f"{stat.get('average', 0):.4f}"))
-                table.setItem(row, 4, QTableWidgetItem(f"{stat.get('stddev', 0):.4f}"))
-                table.setItem(row, 5, QTableWidgetItem(f"{stat.get('variance', 0):.4f}"))
-            except: pass
+                min_val = stat.get('minimum', stat.get('min', 0))
+                max_val = stat.get('maximum', stat.get('max', 0))
+                avg_val = stat.get('average', stat.get('mean', 0))
+                std_val = stat.get('stddev', 0)
+                var_val = stat.get('variance', 0)
+                table.setItem(row, 0, QTableWidgetItem(str(name)))
+                table.setItem(row, 1, QTableWidgetItem(f"{float(min_val):.4f}"))
+                table.setItem(row, 2, QTableWidgetItem(f"{float(max_val):.4f}"))
+                table.setItem(row, 3, QTableWidgetItem(f"{float(avg_val):.4f}"))
+                table.setItem(row, 4, QTableWidgetItem(f"{float(std_val):.4f}"))
+                table.setItem(row, 5, QTableWidgetItem(f"{float(var_val):.4f}"))
+            except Exception as e:
+                print(f"Error parsing row {row}: {e}")
 
         layout.addWidget(table)
 
