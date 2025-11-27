@@ -99,10 +99,17 @@ class ThreeDView(QFrame):
             g = data_dict["green"]
             b = data_dict["blue"]
             
-            if r.max() > 255:
-                r = (r / r.max() * 255).astype(np.uint8)
-                g = (g / g.max() * 255).astype(np.uint8)
-                b = (b / b.max() * 255).astype(np.uint8)
+            max_val = max(r.max(), g.max(), b.max())
+            
+            if max_val > 255:
+                scale = 255.0 / max_val
+                r = (r * scale).astype(np.uint8)
+                g = (g * scale).astype(np.uint8)
+                b = (b * scale).astype(np.uint8)
+            else:
+                r = r.astype(np.uint8)
+                g = g.astype(np.uint8)
+                b = b.astype(np.uint8)
             
             rgb_array = np.column_stack((r, g, b))
             point_cloud.point_data["RGB"] = rgb_array
@@ -113,7 +120,7 @@ class ThreeDView(QFrame):
         self.plotter.add_axes()
 
         scalar_bar_args={
-            "title":None,
+            "title": None,
             "vertical": True,
             "position_x": 0.95,
             "position_y": 0.06,
@@ -125,10 +132,10 @@ class ThreeDView(QFrame):
         try:
             self.point_actor = self.plotter.add_mesh(
                 point_cloud,
-                scalars=None if rgb else scalars,
+                scalars=scalars,
                 rgba=rgb, 
                 render_points_as_spheres=True,
-                point_size=1,
+                point_size=3,
                 cmap=cmap if not rgb else None,
                 scalar_bar_args=scalar_bar_args if not rgb else None
             )
