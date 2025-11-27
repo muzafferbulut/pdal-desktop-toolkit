@@ -498,7 +498,11 @@ class ApplicationController(QObject):
         if not context: return
 
         pipeline_config = context.get_full_pipeline_json()
-        pipeline_config.append({"type": "filters.stats", "enumerate": "Classification"})
+        
+        pipeline_config.append({
+            "type": "filters.stats", 
+            "enumerate": "Classification"
+        })
 
         self.ui_status_message_signal.emit("Calculating statistics...", 0)
         self.progress_update_signal.emit(10)
@@ -514,12 +518,10 @@ class ApplicationController(QObject):
         self.stats_thread = QThread()
         self.stats_worker = StatsWorker(file_path, pipeline_config)
         self.stats_worker.moveToThread(self.stats_thread)
-        
         self.stats_thread.started.connect(self.stats_worker.run)
         self.stats_worker.finished.connect(self._handle_stats_success)
         self.stats_worker.error.connect(self._handle_worker_error)
         self.stats_worker.progress.connect(self.progress_update_signal.emit)
-        
         self.stats_worker.finished.connect(self.stats_thread.quit)
         self.stats_worker.finished.connect(self.stats_worker.deleteLater)
         self.stats_thread.finished.connect(self.stats_thread.deleteLater)
