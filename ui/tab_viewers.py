@@ -1,5 +1,6 @@
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWidgets import QVBoxLayout, QFrame
+from core.render_utils import RenderUtils
 from pyvistaqt import QtInteractor
 from PyQt5.QtCore import QUrl
 import pyvista as pv
@@ -83,6 +84,8 @@ class ThreeDView(QFrame):
         scalars = "Elevation"
         rgb = False
         cmap = "viridis"
+        
+        annotations = {} 
 
         if color_by == "Intensity" and "intensity" in data_dict:
             point_cloud["Intensity"] = data_dict["intensity"]
@@ -90,9 +93,14 @@ class ThreeDView(QFrame):
             cmap = "gray"
         
         elif color_by == "Classification" and "classification" in data_dict:
-            point_cloud["Classification"] = data_dict["classification"]
+            cls_data = data_dict["classification"]
+            point_cloud["Classification"] = cls_data
             scalars = "Classification"
-            cmap = "tab10"
+            cmap = "tab10" 
+
+            unique_classes = np.unique(cls_data)
+            for c in unique_classes:
+                annotations[float(c)] = RenderUtils.get_label(c)
 
         elif color_by == "RGB" and "red" in data_dict:
             r = data_dict["red"]
@@ -120,15 +128,15 @@ class ThreeDView(QFrame):
         self.plotter.add_axes()
 
         scalar_bar_args={
-            "title": None,
+            "title": None, 
             "vertical": True,
-            "position_x": 0.95,
+            "position_x": 0.95, 
             "position_y": 0.06,
             "height": 0.25,       
-            "width": 0.03,   
-            "label_font_size": 11
+            "width": 0.03, 
+            "label_font_size": 11,
         }
-
+        
         try:
             self.point_actor = self.plotter.add_mesh(
                 point_cloud,
@@ -137,7 +145,10 @@ class ThreeDView(QFrame):
                 render_points_as_spheres=True,
                 point_size=3,
                 cmap=cmap if not rgb else None,
-                scalar_bar_args=scalar_bar_args if not rgb else None
+                scalar_bar_args=scalar_bar_args if not rgb else None,
+                categories=bool(annotations), 
+                show_scalar_bar=not rgb,
+                annotations=annotations if annotations else None 
             )
             
             if rgb:

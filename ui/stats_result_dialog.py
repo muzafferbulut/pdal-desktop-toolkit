@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QTabWidget, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QTextEdit, QDialogButtonBox, QWidget)
+from core.render_utils import RenderUtils
 from PyQt5.QtGui import QFont
 import json
 
@@ -92,8 +93,11 @@ class StatsResultDialog(QDialog):
                     class_id = parts[0]
                     count = int(float(parts[1]))
                     percent = (count / total_points) * 100
+
+                    label = RenderUtils.get_label(class_id)
+                    display_text = f"{class_id} ({label})"
                     
-                    table.setItem(row, 0, QTableWidgetItem(class_id))
+                    table.setItem(row, 0, QTableWidgetItem(display_text))                    
                     table.setItem(row, 1, QTableWidgetItem(f"{count:,}"))
                     table.setItem(row, 2, QTableWidgetItem(f"%{percent:.2f}"))
                 except: pass
