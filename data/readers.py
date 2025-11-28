@@ -2,6 +2,7 @@ from data.data_handler import IBasicReader, IMetadataExtractor, IDataSampler
 from core.render_utils import RenderUtils 
 from core.geo_utils import GeoUtils
 from typing import Dict, Any, Union
+from core.enums import Dimensions
 import numpy as np  
 import traceback
 import pdal
@@ -114,21 +115,24 @@ class LasLazReader(IBasicReader, IMetadataExtractor, IDataSampler):
             raw_data = self._render_pipeline.arrays[0]
             
             extracted_data = {
-                "x": raw_data["X"],
-                "y": raw_data["Y"],
-                "z": raw_data["Z"],
-                "count": len(raw_data["X"])
+                "x": raw_data[Dimensions.X],
+                "y": raw_data[Dimensions.Y],
+                "z": raw_data[Dimensions.Z],
+                "count": len(raw_data[Dimensions.X])
             }
 
             dims = raw_data.dtype.names
-            if "Intensity" in dims:
-                extracted_data["intensity"] = raw_data["Intensity"]
-            if "Red" in dims and "Green" in dims and "Blue" in dims:
-                extracted_data["red"] = raw_data["Red"]
-                extracted_data["green"] = raw_data["Green"]
-                extracted_data["blue"] = raw_data["Blue"]
-            if "Classification" in dims:
-                extracted_data["classification"] = raw_data["Classification"]
+
+            if Dimensions.INTENSITY in dims:
+                extracted_data["intensity"] = raw_data[Dimensions.INTENSITY]
+
+            if Dimensions.RED in dims and Dimensions.GREEN in dims and Dimensions.BLUE in dims:
+                extracted_data["red"] = raw_data[Dimensions.RED]
+                extracted_data["green"] = raw_data[Dimensions.GREEN]
+                extracted_data["blue"] = raw_data[Dimensions.BLUE]
+
+            if Dimensions.CLASSIFICATION in dims:
+                extracted_data["classification"] = raw_data[Dimensions.CLASSIFICATION]
 
             vis_data = RenderUtils.downsample(extracted_data)
             vis_data["status"] = True
