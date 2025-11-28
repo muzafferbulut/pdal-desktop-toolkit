@@ -268,8 +268,22 @@ class MainWindow(QMainWindow):
     def _on_file_double_clicked(self, file_path: str, file_name: str):
         self.controller.handle_double_click(file_path, file_name)
 
-    def _handle_render_data(self, sample_data: dict, style_name: str, reset_view: bool):
-        self.three_d_view.render_point_cloud(sample_data, color_by=style_name, reset_view=reset_view)
+    def _handle_render_data(self, file_path: str, style_name: str, reset_view: bool):
+        sample_data = self.controller.get_layer_data(file_path)
+        
+        if not sample_data:
+            self.logger.warning(f"Render verisi BOŞ: {file_path}")
+            return
+        
+        if not sample_data.get("status", True):
+             self.logger.error(f"Render verisi HATALI: {sample_data.get('error')}")
+             return
+
+        self.three_d_view.render_point_cloud(
+            sample_data, 
+            color_by=style_name, 
+            reset_view=reset_view
+        )
         self.tab_widget.setCurrentWidget(self.three_d_view)
 
     def _handle_draw_bbox(self, bounds: dict):

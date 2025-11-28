@@ -9,6 +9,7 @@ class Dimensions(str, Enum):
     RED = "Red"
     GREEN = "Green"
     BLUE = "Blue"
+    RGB = "RGB"
 
 class ToolNames(str, Enum):
     CROP = "Crop (BBox)"

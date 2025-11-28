@@ -10,6 +10,7 @@ from core.stats_worker import StatsWorker
 from core.merge_worker import MergeWorker
 from core.read_worker import ReaderWorker
 from typing import Dict, Any, Optional
+from core.enums import Dimensions
 from core.logger import Logger
 import os
 
@@ -28,7 +29,7 @@ class ApplicationController(QObject):
     ui_status_message_signal = pyqtSignal(str, int)
     
     # View Signals
-    render_data_signal = pyqtSignal(dict, str, bool) # (sample_data, style_name, reset_view)
+    render_data_signal = pyqtSignal(str, str, bool) # (filepath, style_name, reset_view)
     draw_bbox_signal = pyqtSignal(dict) # (bounds)
     clear_views_signal = pyqtSignal()
     
@@ -62,6 +63,12 @@ class ApplicationController(QObject):
         self.filter_thread = None
         self.export_thread = None
         self.stats_thread = None
+
+    def get_layer_data(self, file_path:str) -> Optional[Dict]:
+        context = self._data_cache.get(file_path)
+        if context:
+            return context.current_render_data
+        return None
 
     def start_merge_process(self, file_paths: list):
         if not file_paths:
@@ -190,14 +197,12 @@ class ApplicationController(QObject):
         else:
             self.logger.warning(f"Spatial bounds not found: {file_name}")
 
-        sample_data = context.current_render_data
-        if sample_data and "x" in sample_data:
-            current_style = getattr(context, "active_style", "Elevation")
-            self.render_data_signal.emit(sample_data, current_style, True)
+        if context.current_render_data:
+            current_style = getattr(context, "active_style", Dimensions.Z)
+            self.render_data_signal.emit(file_path, current_style, True)
             self.logger.info(f"'{file_name}' rendered in 3D view.")
         else:
-            error_msg = sample_data.get("error", "Unknown error") if sample_data else "Data is empty"
-            self.logger.error(f"3D Render Failed: '{file_name}': {error_msg}")
+            self.logger.error(f"3D Render Failed: '{file_name}'.")
 
     def handle_style_change(self, file_path: str, style_name: str):
         context = self._check_and_log_layer(file_path, "Style Change")
@@ -207,18 +212,20 @@ class ApplicationController(QObject):
         data = context.current_render_data
         file_name = os.path.basename(file_path)
 
-        if style_name == "Intensity" and "intensity" not in data:
+        if style_name == Dimensions.INTENSITY and Dimensions.INTENSITY not in data:
             self.logger.warning(f"'{file_name}' does not contain Intensity channel.")
             return
-        if style_name == "RGB" and "red" not in data:
+        
+        if style_name == Dimensions.RGB and Dimensions.RED not in data:
             self.logger.warning(f"'{file_name}' does not contain RGB channels.")
             return
-        if style_name == "Classification" and "classification" not in data:
+        
+        if style_name == Dimensions.CLASSIFICATION and Dimensions.CLASSIFICATION not in data:
             self.logger.warning(f"'{file_name}' does not contain Classification channel.")
             return
         
         context.active_style = style_name
-        self.render_data_signal.emit(data, style_name, False)
+        self.render_data_signal.emit(file_path, style_name, False)
         self.logger.info(f"'{file_name}' style updated to '{style_name}'.")
 
     def handle_zoom_to_bbox(self, file_path: str):
@@ -333,7 +340,7 @@ class ApplicationController(QObject):
             self.logger.info(f"Pipeline refreshed. Current Points: {output_count:,}")
 
         current_style = getattr(context, "active_style", "Elevation")
-        self.render_data_signal.emit(result_data, current_style, False)
+        self.render_data_signal.emit(file_path, current_style, False)
 
     def handle_remove_stage(self, file_path: str, stage_index: int):
         context = self._check_and_log_layer(file_path, "Removing Stage")

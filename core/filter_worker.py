@@ -1,5 +1,6 @@
 from PyQt5.QtCore import QObject, pyqtSignal
 from core.render_utils import RenderUtils
+from core.enums import Dimensions
 import traceback
 import pdal
 import json
@@ -27,22 +28,23 @@ class FilterWorker(QObject):
             arrays = pipeline.arrays[0]
 
             extracted_data = {
-                "x": arrays["X"],
-                "y": arrays["Y"],
-                "z": arrays["Z"],
+                Dimensions.X: arrays[Dimensions.X.value],
+                Dimensions.Y: arrays[Dimensions.Y.value],
+                Dimensions.Z: arrays[Dimensions.Z.value],
                 "count": count
             }
 
             dims = arrays.dtype.names
-            if "Intensity" in dims:
-                extracted_data["intensity"] = arrays["Intensity"]
-            if "Red" in dims and "Green" in dims and "Blue" in dims:
-                extracted_data["red"] = arrays["Red"]
-                extracted_data["green"] = arrays["Green"]
-                extracted_data["blue"] = arrays["Blue"]
-            if "Classification" in dims:
-                extracted_data["classification"] = arrays["Classification"]
-
+            if Dimensions.INTENSITY.value in dims:
+                extracted_data[Dimensions.INTENSITY] = arrays[Dimensions.INTENSITY.value]
+            
+            if Dimensions.RED.value in dims and Dimensions.GREEN.value in dims and Dimensions.BLUE.value in dims:
+                extracted_data[Dimensions.RED] = arrays[Dimensions.RED.value]
+                extracted_data[Dimensions.GREEN] = arrays[Dimensions.GREEN.value]
+                extracted_data[Dimensions.BLUE] = arrays[Dimensions.BLUE.value]
+                
+            if Dimensions.CLASSIFICATION.value in dims:
+                extracted_data[Dimensions.CLASSIFICATION] = arrays[Dimensions.CLASSIFICATION.value]
 
             vis_data = RenderUtils.downsample(extracted_data)
             self.progress.emit(100)

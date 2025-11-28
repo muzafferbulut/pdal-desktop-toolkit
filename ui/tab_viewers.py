@@ -2,6 +2,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWidgets import QVBoxLayout, QFrame
 from core.render_utils import RenderUtils
 from pyvistaqt import QtInteractor
+from core.enums import Dimensions
 from PyQt5.QtCore import QUrl
 import pyvista as pv
 import numpy as np
@@ -70,9 +71,9 @@ class ThreeDView(QFrame):
         data_dict: {x, y, z, intensity, red, green...}
         color_by: 'Elevation', 'Intensity', 'RGB', 'Classification'
         """
-        x = data_dict.get("x")
-        y = data_dict.get("y")
-        z = data_dict.get("z")
+        x = data_dict.get(Dimensions.X)
+        y = data_dict.get(Dimensions.Y)
+        z = data_dict.get(Dimensions.Z)
 
         if x is None: return
 
@@ -87,13 +88,13 @@ class ThreeDView(QFrame):
         
         annotations = {} 
 
-        if color_by == "Intensity" and "intensity" in data_dict:
-            point_cloud["Intensity"] = data_dict["intensity"]
+        if color_by == Dimensions.INTENSITY and Dimensions.INTENSITY in data_dict:
+            point_cloud["Intensity"] = data_dict[Dimensions.INTENSITY]
             scalars = "Intensity"
             cmap = "gray"
         
-        elif color_by == "Classification" and "classification" in data_dict:
-            cls_data = data_dict["classification"]
+        elif color_by == Dimensions.CLASSIFICATION and Dimensions.CLASSIFICATION in data_dict:
+            cls_data = data_dict[Dimensions.CLASSIFICATION]
             point_cloud["Classification"] = cls_data
             scalars = "Classification"
             cmap = "tab10" 
@@ -102,10 +103,10 @@ class ThreeDView(QFrame):
             for c in unique_classes:
                 annotations[float(c)] = RenderUtils.get_label(c)
 
-        elif color_by == "RGB" and "red" in data_dict:
-            r = data_dict["red"]
-            g = data_dict["green"]
-            b = data_dict["blue"]
+        elif color_by == Dimensions.RGB and Dimensions.RED in data_dict:
+            r = data_dict[Dimensions.RED]
+            g = data_dict[Dimensions.GREEN]
+            b = data_dict[Dimensions.BLUE]
             
             max_val = max(r.max(), g.max(), b.max())
             

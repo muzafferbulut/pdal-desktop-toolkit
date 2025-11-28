@@ -115,24 +115,23 @@ class LasLazReader(IBasicReader, IMetadataExtractor, IDataSampler):
             raw_data = self._render_pipeline.arrays[0]
             
             extracted_data = {
-                "x": raw_data[Dimensions.X],
-                "y": raw_data[Dimensions.Y],
-                "z": raw_data[Dimensions.Z],
-                "count": len(raw_data[Dimensions.X])
+                Dimensions.X: raw_data[Dimensions.X.value],
+                Dimensions.Y: raw_data[Dimensions.Y.value],
+                Dimensions.Z: raw_data[Dimensions.Z.value],
+                "count": len(raw_data[Dimensions.X.value])
             }
-
             dims = raw_data.dtype.names
 
-            if Dimensions.INTENSITY in dims:
-                extracted_data["intensity"] = raw_data[Dimensions.INTENSITY]
-
-            if Dimensions.RED in dims and Dimensions.GREEN in dims and Dimensions.BLUE in dims:
-                extracted_data["red"] = raw_data[Dimensions.RED]
-                extracted_data["green"] = raw_data[Dimensions.GREEN]
-                extracted_data["blue"] = raw_data[Dimensions.BLUE]
-
-            if Dimensions.CLASSIFICATION in dims:
-                extracted_data["classification"] = raw_data[Dimensions.CLASSIFICATION]
+            if Dimensions.INTENSITY.value in dims:
+                extracted_data[Dimensions.INTENSITY] = raw_data[Dimensions.INTENSITY.value]
+            
+            if Dimensions.RED.value in dims and Dimensions.GREEN.value in dims and Dimensions.BLUE.value in dims:
+                extracted_data[Dimensions.RED] = raw_data[Dimensions.RED.value]
+                extracted_data[Dimensions.GREEN] = raw_data[Dimensions.GREEN.value]
+                extracted_data[Dimensions.BLUE] = raw_data[Dimensions.BLUE.value]
+            
+            if Dimensions.CLASSIFICATION.value in dims:
+                extracted_data[Dimensions.CLASSIFICATION] = raw_data[Dimensions.CLASSIFICATION.value]
 
             vis_data = RenderUtils.downsample(extracted_data)
             vis_data["status"] = True

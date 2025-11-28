@@ -1,3 +1,4 @@
+from core.enums import Dimensions
 import numpy as np
 
 class RenderUtils:
@@ -39,10 +40,11 @@ class RenderUtils:
 
     @staticmethod
     def downsample(data_dict: dict):
-        if "x" not in data_dict:
-            return data_dict
 
-        x_data = data_dict["x"]
+        if Dimensions.X not in data_dict:
+            return data_dict
+        
+        x_data = data_dict[Dimensions.X]
         total_points = len(x_data)
 
         if total_points <= RenderUtils.MAX_VISIBLE_POINTS:
