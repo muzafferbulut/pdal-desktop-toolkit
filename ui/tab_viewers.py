@@ -144,7 +144,7 @@ class ThreeDView(QFrame):
                 scalars=scalars,
                 rgba=rgb, 
                 render_points_as_spheres=True,
-                point_size=3,
+                point_size=1,
                 cmap=cmap if not rgb else None,
                 scalar_bar_args=scalar_bar_args if not rgb else None,
                 categories=bool(annotations), 
