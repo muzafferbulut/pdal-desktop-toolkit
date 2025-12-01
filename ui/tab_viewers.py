@@ -20,7 +20,6 @@ class GISMapView(QWebEngineView):
         self.loadFinished.connect(lambda: setattr(self, "map_is_loaded", True))
     
     def draw_bbox(self, bounds:dict):
-
         if not self.map_is_loaded:
             return
         
@@ -28,6 +27,10 @@ class GISMapView(QWebEngineView):
         miny = bounds.get('miny')
         maxx = bounds.get('maxx')
         maxy = bounds.get('maxy')
+
+        if None in [minx, miny, maxx, maxy]:
+            print("Invalid bounds data, skipping map draw.")
+            return
 
         js_command = f"window.drawBBoxJS({minx}, {miny}, {maxx}, {maxy});"
         self.page().runJavaScript(js_command)
