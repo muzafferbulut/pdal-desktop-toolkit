@@ -3,6 +3,7 @@ from data.writers import PipelineWriter, MetadataWriter
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from core.export_worker import ExportWorker
 from core.logger import Logger
+import json
 import os
 
 class IOController(QObject):
@@ -104,3 +105,28 @@ class IOController(QObject):
         self.progress_update.emit(0)
         self.status_message.emit("Error: Export failed.", 5000)
         self.log_message.emit("ERROR", error_msg)
+
+    def save_batch_config(self, file_path: str, config_data: list):
+        try:
+            if not file_path.lower().endswith(".json"):
+                file_path += ".json"
+                
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(config_data, f, indent=4)
+                
+            self.log_message.emit("INFO", f"Batch configuration saved: {file_path}")
+            self.status_message.emit("Batch config saved.", 3000)
+            return True
+        except Exception as e:
+            self.log_message.emit("ERROR", f"Failed to save batch config: {e}")
+            return False
+        
+    def load_batch_config(self, file_path: str) -> list:
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.log_message.emit("INFO", f"Batch configuration loaded: {file_path}")
+            return data
+        except Exception as e:
+            self.log_message.emit("ERROR", f"Failed to load batch config: {e}")
+            return []

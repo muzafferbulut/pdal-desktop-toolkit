@@ -515,3 +515,17 @@ class MainWindow(QMainWindow):
             if stages:
                 self.progressBar.show()
                 self.controller.start_batch_process(file_path, stages)
+
+    def _open_batch_dialog(self):
+        file_path = self._get_active_layer_path()
+        if not file_path:
+            return
+
+        # Controller'ı parametre olarak geçiyoruz
+        dialog = BatchProcessDialog(self.controller, self) 
+        
+        if dialog.exec_():
+            stages = dialog.get_pipeline_stages()
+            if stages:
+                self.progressBar.show()
+                self.controller.start_batch_process(file_path, stages)
