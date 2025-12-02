@@ -172,3 +172,6 @@ class ApplicationController(QObject):
         if context:
             current_style = getattr(context, "active_style", Dimensions.Z)
             self.render_data_signal.emit(file_path, current_style, False)
+
+    def start_batch_process(self, file_path: str, stages: list):
+        self.process_controller.apply_batch_process(file_path, stages)

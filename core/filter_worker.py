@@ -6,7 +6,7 @@ import pdal
 import json
 
 class FilterWorker(QObject):
-    finished = pyqtSignal(str, dict, object, int) 
+    finished = pyqtSignal(str, dict, dict, object, int) 
     error = pyqtSignal(str)
     progress = pyqtSignal(int)
 
@@ -25,6 +25,9 @@ class FilterWorker(QObject):
             self.progress.emit(-1)         
             count = pipeline.execute()
             self.progress.emit(80)
+
+            metadata = pipeline.metadata
+            
             arrays = pipeline.arrays[0]
 
             extracted_data = {
@@ -48,8 +51,7 @@ class FilterWorker(QObject):
 
             vis_data = RenderUtils.downsample(extracted_data)
             self.progress.emit(100)
-            self.finished.emit(self.file_path, vis_data, self.stage, self.input_count)
-
+            self.finished.emit(self.file_path, vis_data, metadata, self.stage, self.input_count)
         except Exception as e:
             error_details = f"Worker error : {str(e)}\n{traceback.format_exc()}"
             self.error.emit(error_details)

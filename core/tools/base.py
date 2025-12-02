@@ -17,6 +17,11 @@ class BaseTool(ABC):
     @abstractmethod
     def description(self) -> str:
         return "No description available for this tool."
+    
+    @property
+    @abstractmethod
+    def supports_batch(self) -> bool:
+        return True
 
     @abstractmethod
     def get_default_params(self) -> Dict[str, Any]:

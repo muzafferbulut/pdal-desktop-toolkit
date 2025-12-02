@@ -6,6 +6,7 @@ from ui.stats_result_dialog import StatsResultDialog
 from ui.data_sources_panel import DataSourcesPanel
 from ui.tab_viewers import GISMapView, ThreeDView
 from ui.filter_dialog import FilterParamsDialog
+from ui.batch_dialog import BatchProcessDialog
 from core.themes.manager import ThemeManager
 from ui.metadata_panel import MetadataPanel
 from ui.toolbox_panel import ToolboxPanel
@@ -109,6 +110,11 @@ class MainWindow(QMainWindow):
         self.action_about.triggered.connect(self._open_about)
         self.help_menu.addAction(self.action_about)
 
+        # actions
+        self.action_batch_process = QAction(QIcon("ui/resources/icons/batch.png"), "Batch Process", self)
+        self.action_batch_process.setStatusTip("Run multiple tools in sequence.")
+        self.action_batch_process.triggered.connect(self._open_batch_dialog)
+        
         # toolbar actions
         self.file_toolbar = self.addToolBar("Toolbar")
         self.file_toolbar.setMovable(False)
@@ -118,6 +124,7 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_save_pipeline)
         self.file_toolbar.addAction(self.action_save_metadata)
         self.file_toolbar.addSeparator()
+        self.file_toolbar.addAction(self.action_batch_process)
 
     def _get_active_layer_path(self) -> Optional[str]:
         path = self.data_sources_panel.get_selected_file_path()
@@ -272,11 +279,11 @@ class MainWindow(QMainWindow):
         sample_data = self.controller.get_layer_data(file_path)
         
         if not sample_data:
-            self.logger.warning(f"Render verisi BOŞ: {file_path}")
+            self.logger.warning(f"Render data is NULL: {file_path}")
             return
         
         if not sample_data.get("status", True):
-             self.logger.error(f"Render verisi HATALI: {sample_data.get('error')}")
+             self.logger.error(f"Render data ERROR: {sample_data.get('error')}")
              return
 
         self.three_d_view.render_point_cloud(
@@ -496,3 +503,15 @@ class MainWindow(QMainWindow):
         file_name = os.path.basename(file_path)
         dialog = StatsResultDialog(file_name, stats_data, self)
         dialog.exec_()
+
+    def _open_batch_dialog(self):
+        file_path = self._get_active_layer_path()
+        if not file_path:
+            return
+
+        dialog = BatchProcessDialog(self)
+        if dialog.exec_():
+            stages = dialog.get_pipeline_stages()
+            if stages:
+                self.progressBar.show()
+                self.controller.start_batch_process(file_path, stages)

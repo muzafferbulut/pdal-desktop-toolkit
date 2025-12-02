@@ -10,6 +10,7 @@ class OutlierFilter(BaseTool):
         "Classify noise using statistical analysis (Mean/Stdev). "
         "Useful for cleaning up isolated points in the cloud."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {"mean_k": 8, "multiplier":2}
@@ -30,6 +31,7 @@ class RangeFilter(BaseTool):
         "Keeps points that fall within specific criteria. "
         "Use 'Classification![7:7]' to remove noise, or 'Z[0:100]' for elevation."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {"limits": "Classification![7:7]"}
@@ -48,6 +50,7 @@ class DecimationFilter(BaseTool):
         "Keeps every Nth point from the cloud, effectively downsampling it."
         "Use this for quick visualization of large datasets."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {"step": 10}
@@ -66,6 +69,7 @@ class SmrfFilter(BaseTool):
         "Simple Morphological Filter. "
         "It classifies ground points by comparing elevations against an interpolated surface."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -90,6 +94,7 @@ class PmfFilter(BaseTool):
         "Progressive Morphological Filter."
         "It classifies ground points using a progressive window size and threshold."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -114,6 +119,7 @@ class DbscanFilter(BaseTool):
         "DBSCAN Clustering. Extracts and labels clusters based on point density "
         "using Euclidean distance. Highly effective for segmenting individual objects."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -136,6 +142,7 @@ class CsfFilter(BaseTool):
         "Cloth Simulation Filter (Zhang et al., 2016). Highly accurate "
         "ground classification using a simulated cloth to model the terrain."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -160,6 +167,7 @@ class IqrFilter(BaseTool):
         "Removes outliers using the Interquartile Range (IQR) method. "
         "It is more robust to extreme outliers than standard deviation methods."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -183,6 +191,7 @@ class VoxelDownsizeFilter(BaseTool):
         "It selects the first point within each 3D cell (voxel), "
         "resulting in a uniformly distributed point cloud."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {"cell_size": 0.5}
@@ -201,6 +210,7 @@ class NormalFilter(BaseTool):
         "Calculates the normal vector (NormalX, NormalY, NormalZ) for each point "
         "based on its k-nearest neighbors. Essential for surface analysis and modeling."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -221,6 +231,7 @@ class EigenvaluesFilter(BaseTool):
         "Calculates the eigenvalues (Lambda1, Lambda2, Lambda3) of the covariance "
         "matrix based on k-nearest neighbors. Used to determine local geometry features."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -241,6 +252,7 @@ class ExpressionFilter(BaseTool):
         "Passes only points that satisfy a mathematical/logical expression (e.g., "
         "'Z > 100' or 'Classification == 2'). Offers maximum flexibility."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -261,6 +273,7 @@ class SetCRSFilter(BaseTool):
         "Manually sets the Coordinate Reference System (CRS) for unreferenced data. "
         "This tool only adds the CRS metadata (in_srs) to the points, no coordinate transformation is performed."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -282,6 +295,7 @@ class ReprojectionFilter(BaseTool):
         "Transforms point cloud data from one Coordinate Reference System (CRS) "
         "to another, typically defined by an EPSG code (e.g., EPSG:4326)."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -302,6 +316,7 @@ class SupervoxelFilter(BaseTool):
         "Segments the point cloud into perceptually homogeneous 'supervoxels'. "
         "Useful for advanced object segmentation and scene understanding."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -322,6 +337,7 @@ class FarthestPointSamplingFilter(BaseTool):
         "maximizes the distance between selected points, ensuring a uniform "
         "and representative sampling of the whole cloud. Requires a sample size."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {"sample_size": 10000}
@@ -340,6 +356,7 @@ class FerryFilter(BaseTool):
         "Copies data from a source dimension to a target dimension. "
         "Useful for persisting intermediate results or transferring attributes (e.g., 'ClusterID => Classification')."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -365,6 +382,7 @@ class AssignFilter(BaseTool):
         "Assigns a single value to a dimension or dimension range defined by a formula (e.g., "
         "'Classification[0:2]=1' to set Class 0 and 1 to 1, or 'Z=Z*2.0' to scale Z)."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -386,6 +404,7 @@ class LofFilter(BaseTool):
         "the local density of a point with the local densities of its neighbors. "
         "Effective for varying-density point clouds."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -406,6 +425,7 @@ class ClusterFilter(BaseTool):
         "Performs Euclidean distance clustering. Assigns a unique ClusterID to "
         "groups of points that are within the specified distance tolerance."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -428,6 +448,7 @@ class HeadFilter(BaseTool):
         "Returns the first N points from the beginning of the point cloud stream. "
         "Useful for quick file inspection and debugging."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -448,6 +469,7 @@ class TailFilter(BaseTool):
         "Returns the last N points from the end of the point cloud stream. "
         "Useful for inspecting the end of large data files."
     )
+    supports_batch = True
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -465,6 +487,7 @@ class CropFilter(BaseTool):
     name = "Crop (BBox)"
     group = "Geo-Processing"
     description = "Crops the point cloud using a bounding box."
+    supports_batch = False
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
@@ -482,6 +505,7 @@ class MergeFilter(BaseTool):
     name = "Merge"
     group = "Geo-Processing"
     description = "Merges multiple input files into a single point cloud."
+    supports_batch = False
 
     def get_default_params(self) -> Dict[str, Any]:
         return {}
@@ -496,6 +520,7 @@ class ElevationModel(BaseTool):
     name = "Elevation Model"
     group = "Geo-Processing"
     description = "Generate elevation model from a file."
+    supports_batch = False
 
     def get_default_params(self) -> Dict[str, Any]:
         return {}
@@ -510,6 +535,7 @@ class StatsFilter(BaseTool):
     name = "Statistics"
     group = "Geo-Processing"
     description = "Calculates statistical information (min, max, mean, etc.) for dimensions."
+    supports_batch = False
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
