@@ -139,8 +139,31 @@ class ProcessController(QObject):
         
         self.model_thread.start()
 
+    def apply_batch_process(self, file_path: str, stages: list):
+        context = self.data_controller.get_layer(file_path)
+        if not context:
+            return
+
+        if not stages:
+            self.log_message.emit("WARNING", "Batch queue is empty.")
+            return
+
+        full_pipeline_config = context.get_full_pipeline_json()
+
+        stage_names = []
+        for i, stage in enumerate(stages):
+            tagged_config = stage.config.copy()
+            tagged_config["tag"] = f"batch_stage_{i}" 
+            
+            full_pipeline_config.append(tagged_config)
+            stage_names.append(stage.name)
+        
+        self.log_message.emit("INFO", "=== Batch Process Started ===")
+        self.log_message.emit("INFO", f"Queue: {' -> '.join(stage_names)}")
+        
+        self._start_filter_worker(file_path, full_pipeline_config, stage_object=stages)
+
     def _start_filter_worker(self, file_path: str, pipeline_config: list, stage_object: Optional[PipelineStage]):
-        """Filtre worker'ını yapılandırır ve başlatır."""
         self.progress_update.emit(1)
         self.status_message.emit("Applying filter...", 0)
 
@@ -166,13 +189,29 @@ class ProcessController(QObject):
         self.filter_worker.finished.connect(self._on_filter_finished)
         self.filter_worker.error.connect(self._on_worker_error)
         self.filter_worker.progress.connect(self.progress_update.emit)
-        
+        self.filter_worker.stage_progress.connect(self._handle_stage_progress)
         self.filter_worker.finished.connect(self.filter_thread.quit)
         self.filter_worker.finished.connect(self.filter_worker.deleteLater)
         self.filter_thread.finished.connect(self.filter_thread.deleteLater)
         self.filter_thread.finished.connect(self._cleanup_filter_thread_ref)
         
         self.filter_thread.start()
+
+    def _handle_stage_progress(self, index, tag, in_count, out_count):
+        try:
+            stage_idx = int(tag.split("_")[-1])
+            stages = self.filter_worker.stage 
+            
+            if isinstance(stages, list) and 0 <= stage_idx < len(stages):
+                current_stage = stages[stage_idx]
+                stage_name = current_stage.name
+                details = current_stage.display_text.replace(stage_name, "").strip()
+                
+                msg = f"Stage {stage_idx + 1}: {stage_name} {details} | In: {in_count:,} -> Out: {out_count:,}"
+                self.log_message.emit("INFO", msg)
+                
+        except Exception as e:
+            print(f"Log parsing error: {e}")
 
     def _cleanup_filter_thread_ref(self):
         self.filter_thread = None
@@ -187,48 +226,22 @@ class ProcessController(QObject):
         context.current_render_data = result_data
         
         if isinstance(stage_object, list):
-            self.log_message.emit("INFO", "--- Batch Report ---")
-            
-            current_input = input_count
-            
-            for i, stage in enumerate(stage_object):
-                tag = f"batch_stage_{i}"
-                stage_output_count = current_input
-                meta_root = metadata.get("metadata", {})
-                                
-                found_stat = False
-                for key, val in meta_root.items():
-                    if key == tag or (isinstance(val, dict) and val.get("tag") == tag):
-                        if "count" in val:
-                            stage_output_count = val["count"]
-                            found_stat = True
-                            break
-                
-                if not found_stat and "stages" in meta_root:
-                     stage_data = meta_root["stages"].get(tag)
-                     if stage_data and "count" in stage_data:
-                         stage_output_count = stage_data["count"]
-
+            for stage in stage_object:
                 context.add_stage(stage)
-                
-                details = stage.display_text.replace(stage.name, "").strip().strip("()")
-                log_msg = f"Stage {i+1}: {stage.name} | In: {current_input:,} -> Out: {stage_output_count:,}"
-                self.log_message.emit("INFO", log_msg)
-                
-                self.stage_added.emit(file_path, stage.name, f"{details} [In:{current_input} Out:{stage_output_count}]")
-                
-                current_input = stage_output_count
+                self.stage_added.emit(file_path, stage.name, stage.display_text)
 
-            self.log_message.emit("INFO", "--- End Batch Report ---")
+            self.log_message.emit("INFO", "=== Batch Process Completed ===")
 
         elif stage_object:
             context.add_stage(stage_object)
             output_count = result_data.get("count", 0)
             
             clean_details = stage_object.display_text.replace(stage_object.name, "").strip().strip("()")
-            self.stage_added.emit(file_path, stage_object.name, clean_details)
             
-            self.log_message.emit("INFO", f"Stage added: {stage_object.name} ({input_count:,} -> {output_count:,} points)")
+            log_msg = f"Filter Applied: {stage_object.name} {clean_details} | In: {input_count:,} -> Out: {output_count:,}"
+            self.log_message.emit("INFO", log_msg)
+            
+            self.stage_added.emit(file_path, stage_object.name, clean_details)
         
         else:
             output_count = result_data.get("count", 0)
@@ -251,26 +264,3 @@ class ProcessController(QObject):
         self.progress_update.emit(0)
         self.status_message.emit("Error: Process failed.", 5000)
         self.log_message.emit("ERROR", error_msg)
-
-    def apply_batch_process(self, file_path: str, stages: list):
-        context = self.data_controller.get_layer(file_path)
-        if not context:
-            return
-
-        if not stages:
-            self.log_message.emit("WARNING", "Batch queue is empty.")
-            return
-
-        full_pipeline_config = context.get_full_pipeline_json()
-
-        stage_names = []
-        for i, stage in enumerate(stages):
-            tagged_config = stage.config.copy()
-            tagged_config["tag"] = f"batch_stage_{i}"
-            
-            full_pipeline_config.append(tagged_config)
-            stage_names.append(stage.name)
-        
-        joined_names = " -> ".join(stage_names)
-        self.log_message.emit("INFO", f"Batch Processing Started: {joined_names}")
-        self._start_filter_worker(file_path, full_pipeline_config, stage_object=stages)

@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
         # --- CONTROLLER SIGNAL CONNECTIONS ---
         self.controller.progress_update_signal.connect(self._handle_progress)
         self.controller.log_error_signal.connect(self._handle_controller_error)
+        self.controller.log_info_signal.connect(self._handle_controller_info)
         self.controller.ui_status_message_signal.connect(self.statusBar().showMessage)
         self.controller.stats_ready_signal.connect(self._show_stats_dialog)
         
@@ -311,6 +312,10 @@ class MainWindow(QMainWindow):
     def _handle_controller_error(self, error_message: str):
         self.progressBar.hide()
         self.logger.error(error_message)
+    
+    def _handle_controller_info(self, message: str):
+        """Controller'dan gelen bilgi mesajlarını log paneline yazar."""
+        self.logger.info(message)
         
     def _create_status_bar(self):
         self.statusBar()
@@ -509,19 +514,6 @@ class MainWindow(QMainWindow):
         if not file_path:
             return
 
-        dialog = BatchProcessDialog(self)
-        if dialog.exec_():
-            stages = dialog.get_pipeline_stages()
-            if stages:
-                self.progressBar.show()
-                self.controller.start_batch_process(file_path, stages)
-
-    def _open_batch_dialog(self):
-        file_path = self._get_active_layer_path()
-        if not file_path:
-            return
-
-        # Controller'ı parametre olarak geçiyoruz
         dialog = BatchProcessDialog(self.controller, self) 
         
         if dialog.exec_():
