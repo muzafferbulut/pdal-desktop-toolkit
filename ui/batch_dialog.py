@@ -1,11 +1,115 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget, 
                              QPushButton, QComboBox, QLabel, QStyle, QFrame, 
-                             QFileDialog, QMessageBox)
+                             QMessageBox, QTableWidget, QTableWidgetItem, 
+                             QHeaderView, QAbstractItemView, QFormLayout, 
+                             QLineEdit, QDialogButtonBox)
 from core.pipeline_builder import PipelineBuilder
 from ui.filter_dialog import FilterParamsDialog
 from core.tools.registry import ToolRegistry
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize
+
+class SavePresetDialog(QDialog):
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Save Batch Preset")
+        self.resize(400, 150)
+        self.name = None
+        self.description = None
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        form_layout = QFormLayout()
+        self.le_name = QLineEdit()
+        self.le_name.setPlaceholderText("Enter a unique name for this preset...")   
+        self.le_desc = QLineEdit()
+        self.le_desc.setPlaceholderText("Optional description...")
+        form_layout.addRow("Preset Name:", self.le_name)
+        form_layout.addRow("Description:", self.le_desc)
+        layout.addLayout(form_layout)
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self._on_accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _on_accept(self):
+        if not self.le_name.text().strip():
+            QMessageBox.warning(self, "Missing Name", "Please enter a preset name.")
+            return
+        
+        self.name = self.le_name.text().strip()
+        self.description = self.le_desc.text().strip()
+        self.accept()
+
+    def get_data(self):
+        return self.name, self.description
+
+class PresetSelectionDialog(QDialog):
+
+    def __init__(self, presets, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Load Batch Preset")
+        self.resize(600, 400)
+        self.presets = presets
+        self.selected_preset = None
+        self.delete_requested = None 
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Name", "Description", "Date"])
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._populate_table()
+        layout.addWidget(self.table)
+        btn_layout = QHBoxLayout()
+        btn_delete = QPushButton("Delete")
+        btn_delete.setIcon(QIcon("ui/resources/icons/remove.png"))
+        btn_delete.clicked.connect(self._on_delete)
+        btn_load = QPushButton("Load")
+        btn_load.setIcon(QIcon("ui/resources/icons/open.png"))
+        btn_load.clicked.connect(self._on_load)
+        btn_layout.addWidget(btn_delete)
+        btn_layout.addStretch()
+        btn_layout.addWidget(btn_load)
+        layout.addLayout(btn_layout)
+
+    def _populate_table(self):
+        self.table.setRowCount(len(self.presets))
+        for row, preset in enumerate(self.presets):
+            self.table.setItem(row, 0, QTableWidgetItem(preset["name"]))
+            self.table.setItem(row, 1, QTableWidgetItem(preset.get("description", "")))
+            self.table.setItem(row, 2, QTableWidgetItem(preset["date"]))
+            self.table.item(row, 0).setData(Qt.UserRole, preset["id"])
+
+    def _on_load(self):
+        row = self.table.currentRow()
+        if row >= 0:
+            preset_id = self.table.item(row, 0).data(Qt.UserRole)
+            for p in self.presets:
+                if p["id"] == preset_id:
+                    self.selected_preset = p
+                    break
+            self.accept()
+
+    def _on_delete(self):
+        row = self.table.currentRow()
+        if row >= 0:
+            preset_id = self.table.item(row, 0).data(Qt.UserRole)
+            res = QMessageBox.question(self, "Confirm Delete", 
+                                     "Are you sure you want to delete this preset?",
+                                     QMessageBox.Yes | QMessageBox.No)
+            if res == QMessageBox.Yes:
+                self.delete_requested = preset_id
+                self.reject() 
 
 class BatchProcessDialog(QDialog):
 
@@ -26,13 +130,13 @@ class BatchProcessDialog(QDialog):
 
         btn_load = self._create_icon_button(
             "Load Preset", 
-            self.style().standardIcon(QStyle.SP_DialogOpenButton), 
+            QIcon("ui/resources/icons/open.png"),
             self._on_load_preset
         )
 
         btn_save = self._create_icon_button(
             "Save Preset", 
-            self.style().standardIcon(QStyle.SP_DialogSaveButton), 
+            QIcon("ui/resources/icons/save.png"),
             self._on_save_preset
         )
 
@@ -199,35 +303,50 @@ class BatchProcessDialog(QDialog):
             QMessageBox.warning(self, "Empty Queue", "There are no stages to save.")
             return
 
-        export_data = []
-        for stage in self.queued_stages:
-            export_data.append({
-                "tool_name": stage.name,
-                "params": stage.params
-            })
+        dialog = SavePresetDialog(self)
+        if dialog.exec_():
+            name, desc = dialog.get_data()
+            
+            export_data = []
+            for stage in self.queued_stages:
+                export_data.append({
+                    "tool_name": stage.name,
+                    "params": stage.params
+                })
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Save Batch Preset", "", "JSON Files (*.json)"
-        )
-
-        if file_path:
-            self.controller.io_controller.save_batch_config(file_path, export_data)
+            self.controller.io_controller.save_batch_to_db(
+                name=name, 
+                config_data=export_data,
+                description=desc
+            )
 
     def _on_load_preset(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Load Batch Preset", "", "JSON Files (*.json)"
-        )
-        if not file_path:
-            return
+        while True: 
+            presets = self.controller.io_controller.get_batch_presets_from_db()
+            
+            if not presets:
+                QMessageBox.information(self, "Info", "No saved presets found in database.")
+                return
 
-        data = self.controller.io_controller.load_batch_config(file_path)
-        if not data:
-            return
+            dialog = PresetSelectionDialog(presets, self)
+            result = dialog.exec_()
 
+            if result == QDialog.Accepted and dialog.selected_preset:
+                self._load_configuration(dialog.selected_preset["config"])
+                return
+            
+            elif dialog.delete_requested:
+                self.controller.io_controller.delete_batch_preset(dialog.delete_requested)
+                continue 
+            
+            else:
+                return
+
+    def _load_configuration(self, config_data):
         self.queued_stages.clear()
         self.list_widget.clear()
 
-        for item in data:
+        for item in config_data:
             tool_name = item.get("tool_name")
             params = item.get("params")
             stage = PipelineBuilder.create_stage(tool_name, params)

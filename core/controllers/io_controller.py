@@ -1,6 +1,7 @@
 from core.controllers.data_controller import DataController
 from data.writers import PipelineWriter, MetadataWriter
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
+from core.database.repository import Repository
 from core.export_worker import ExportWorker
 from core.logger import Logger
 import json
@@ -17,6 +18,7 @@ class IOController(QObject):
         self.data_controller = data_controller
         self.logger = logger
         self.export_thread = None
+        self.repository = Repository()
 
     def export_layer(self, file_path: str, save_path: str):
         context = self.data_controller.get_layer(file_path)
@@ -130,3 +132,22 @@ class IOController(QObject):
         except Exception as e:
             self.log_message.emit("ERROR", f"Failed to load batch config: {e}")
             return []
+        
+    def save_batch_to_db(self, name: str, config_data: list, description: str = ""):
+        success = self.repository.save_batch_preset(name, config_data, description)
+
+        if success:
+            self.log_message.emit("INFO", f"Batch preset saved to DB: '{name}'")
+            self.status_message.emit("Preset saved.", 3000)
+        else:
+            self.log_message.emit("ERROR", "Failed to save preset to database.")
+
+    def get_batch_presets_from_db(self):
+        return self.repository.get_all_presets()
+
+    def delete_batch_preset(self, preset_id: int):
+        success = self.repository.delete_preset(preset_id)
+        if success:
+            self.log_message.emit("INFO", "Preset deleted.")
+        else:
+            self.log_message.emit("ERROR", "Failed to delete preset.")

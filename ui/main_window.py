@@ -45,84 +45,50 @@ class MainWindow(QMainWindow):
         
         ThemeManager.apply_theme("Light Theme")
 
-        # --- CONTROLLER SIGNAL CONNECTIONS ---
         self.controller.progress_update_signal.connect(self._handle_progress)
         self.controller.log_error_signal.connect(self._handle_controller_error)
         self.controller.log_info_signal.connect(self._handle_controller_info)
         self.controller.ui_status_message_signal.connect(self.statusBar().showMessage)
         self.controller.stats_ready_signal.connect(self._show_stats_dialog)
-        
-        # Data Signals
         self.controller.file_load_success_signal.connect(self._handle_controller_file_load)
         self.controller.file_removed_signal.connect(self._handle_controller_file_remove)
         self.controller.stage_added_signal.connect(self.data_sources_panel.add_stage_node)
-        
-        # View/Metadata Signals
         self.controller.render_data_signal.connect(self._handle_render_data)
         self.controller.draw_bbox_signal.connect(self._handle_draw_bbox)
         self.controller.clear_views_signal.connect(self._handle_clear_views)
         self.controller.update_metadata_signal.connect(self.metadata_panel.update_metadata)
         self.controller.clear_metadata_signal.connect(self.metadata_panel.clear_metadata)
-        
         self.controller.export_success_signal.connect(self._handle_export_success)
-
-        menu_bar = self.menuBar()
-
-        # file menu actions
-        self.file_menu = menu_bar.addMenu("File")
-
+        
         self.action_open_file = QAction(QIcon("ui/resources/icons/open.png"), "Open File", self)
         self.action_open_file.setShortcut("Ctrl+O")
         self.action_open_file.setStatusTip("Open point cloud file (Ctrl+O).")
         self.action_open_file.triggered.connect(self._open_file_dialog)
-        self.file_menu.addAction(self.action_open_file)
 
         self.action_export_layer = QAction(QIcon("ui/resources/icons/export.png"), "Export Layer", self)
         self.action_export_layer.setShortcut("Ctrl+E")
         self.action_export_layer.setStatusTip("Export selected layer to LAS/LAZ.")
         self.action_export_layer.triggered.connect(self._on_toolbar_export_layer)
-        self.file_menu.addAction(self.action_export_layer)
 
         self.action_save_pipeline = QAction(QIcon("ui/resources/icons/save_pipeline.png"), "Save Pipeline...", self)
         self.action_save_pipeline.setShortcut("Ctrl+P")
         self.action_save_pipeline.setStatusTip("Save active pipeline (Ctrl+P).")
         self.action_save_pipeline.triggered.connect(self._on_toolbar_save_pipeline)
-        self.file_menu.addAction(self.action_save_pipeline)
 
         self.action_save_metadata = QAction(QIcon("ui/resources/icons/metadata.png"), "Save Full Metadata", self)
         self.action_save_metadata.setStatusTip("Save metadata to JSON.")
         self.action_save_metadata.triggered.connect(self._on_toolbar_save_metadata)
-        self.file_menu.addAction(self.action_save_metadata)
 
-        # view menü actions
-        self.view_menu = menu_bar.addMenu("View")
-        self.themes_menu = self.view_menu.addMenu("Themes")
-        self._populate_themes_menu()
-        self.view_menu.addSeparator()
-        self.view_menu.addAction(self.data_sources_dock.toggleViewAction())
-        self.view_menu.addAction(self.metadata_dock.toggleViewAction())
-        self.view_menu.addAction(self.toolbox_dock.toggleViewAction())
-        self.view_menu.addAction(self.log_dock.toggleViewAction())
-        self.view_menu.addSeparator()
-        self.action_reset_layout = QAction("Restore Default", self)
-        self.action_reset_layout.triggered.connect(self._reset_layout)
-        self.view_menu.addAction(self.action_reset_layout)
-
-        # help menu actions
-        self.help_menu = menu_bar.addMenu("Help")
-        self.action_about = QAction(QIcon("ui/resources/icons/about.png"), "About", self)
-        self.action_about.setStatusTip("About")
-        self.action_about.triggered.connect(self._open_about)
-        self.help_menu.addAction(self.action_about)
-
-        # actions
         self.action_batch_process = QAction(QIcon("ui/resources/icons/batch.png"), "Batch Process", self)
         self.action_batch_process.setStatusTip("Run multiple tools in sequence.")
         self.action_batch_process.triggered.connect(self._open_batch_dialog)
         
-        # toolbar actions
+        self.action_about = QAction(QIcon("ui/resources/icons/about.png"), "About", self)
+        self.action_about.setStatusTip("About")
+        self.action_about.triggered.connect(self._open_about)
+
         self.file_toolbar = self.addToolBar("Toolbar")
-        self.file_toolbar.setObjectName("MainToolBar")
+        self.file_toolbar.setObjectName("MainToolbar")
         self.file_toolbar.setMovable(False)
         self.file_toolbar.addAction(self.action_open_file)
         self.file_toolbar.addSeparator()
@@ -131,6 +97,38 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_save_metadata)
         self.file_toolbar.addSeparator()
         self.file_toolbar.addAction(self.action_batch_process)
+
+        menu_bar = self.menuBar()
+
+        # File Menu
+        self.file_menu = menu_bar.addMenu("File")
+        self.file_menu.addAction(self.action_open_file)
+        self.file_menu.addAction(self.action_export_layer)
+        self.file_menu.addAction(self.action_save_pipeline)
+        self.file_menu.addAction(self.action_save_metadata)
+
+        # View Menu
+        self.view_menu = menu_bar.addMenu("View")
+        self.themes_menu = self.view_menu.addMenu("Themes")
+        self._populate_themes_menu()
+        
+        self.view_menu.addSeparator()
+        self.view_menu.addAction(self.file_toolbar.toggleViewAction())
+        
+        self.view_menu.addSeparator()
+        self.view_menu.addAction(self.data_sources_dock.toggleViewAction())
+        self.view_menu.addAction(self.metadata_dock.toggleViewAction())
+        self.view_menu.addAction(self.toolbox_dock.toggleViewAction())
+        self.view_menu.addAction(self.log_dock.toggleViewAction())
+        
+        self.view_menu.addSeparator()
+        self.action_reset_layout = QAction("Restore Default", self)
+        self.action_reset_layout.triggered.connect(self._reset_layout)
+        self.view_menu.addAction(self.action_reset_layout)
+
+        # Help Menu
+        self.help_menu = menu_bar.addMenu("Help")
+        self.help_menu.addAction(self.action_about)
 
     def _get_active_layer_path(self) -> Optional[str]:
         path = self.data_sources_panel.get_selected_file_path()
