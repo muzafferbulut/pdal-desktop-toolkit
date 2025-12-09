@@ -10,6 +10,7 @@ from ui.filter_dialog import FilterParamsDialog
 from ui.batch_dialog import BatchProcessDialog
 from core.themes.manager import ThemeManager
 from ui.metadata_panel import MetadataPanel
+from ui.db_manager import DbManagerDialog
 from ui.toolbox_panel import ToolboxPanel
 from ui.merge_dialog import MergeDialog
 from ui.model_dialog import ModelDialog
@@ -129,6 +130,15 @@ class MainWindow(QMainWindow):
         # Help Menu
         self.help_menu = menu_bar.addMenu("Help")
         self.help_menu.addAction(self.action_about)
+
+        self.action_db_manager = QAction(QIcon("ui/resources/icons/database.png"), "DB Manager", self)
+        self.action_db_manager.setToolTip("Manage Database Connections")
+        self.action_db_manager.triggered.connect(self._open_db_manager)
+        self.file_toolbar.addAction(self.action_db_manager)
+
+    def _open_db_manager(self):
+        dlg = DbManagerDialog(self)
+        dlg.exec_()
 
     def _get_active_layer_path(self) -> Optional[str]:
         path = self.data_sources_panel.get_selected_file_path()

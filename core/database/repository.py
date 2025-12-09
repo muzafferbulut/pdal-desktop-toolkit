@@ -1,4 +1,4 @@
-from .models import BatchPreset
+from .models import BatchPreset, DbConnection
 from .connection import DatabaseManager
 import json
 
@@ -64,6 +64,64 @@ class Repository:
             return False
         except Exception as e:
             print(f"DB Error (Delete): {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def save_connection(self, conn_data: dict) -> bool:
+        session = self.db_manager.get_session()
+        try:
+            conn = DbConnection(
+                name=conn_data["name"],
+                db_type=conn_data.get("db_type", "postgresql"),
+                host=conn_data.get("host", "localhost"),
+                port=int(conn_data.get("port", 5432)),
+                database_name=conn_data["database_name"],
+                username=conn_data.get("username"),
+                password=conn_data.get("password")
+            )
+            session.add(conn)
+            session.commit()
+            return True
+        except Exception as e:
+            print(f"DB Error (Save Conn): {e}")
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def get_connections(self) -> list:
+        session = self.db_manager.get_session()
+        try:
+            conns = session.query(DbConnection).all()
+            return [
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "type": c.db_type,
+                    "host": c.host,
+                    "port": c.port,
+                    "dbname": c.database_name,
+                    "user": c.username,
+                    "password": c.password
+                } for c in conns
+            ]
+        except Exception:
+            return []
+        finally:
+            session.close()
+
+    def delete_connection(self, conn_id: int) -> bool:
+        session = self.db_manager.get_session()
+        try:
+            conn = session.query(DbConnection).filter(DbConnection.id == conn_id).first()
+            if conn:
+                session.delete(conn)
+                session.commit()
+                return True
+            return False
+        except Exception:
             session.rollback()
             return False
         finally:
