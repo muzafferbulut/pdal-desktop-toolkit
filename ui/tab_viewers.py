@@ -16,9 +16,29 @@ class GISMapView(QWebEngineView):
         map_file_path = os.path.join(current_dir, "resources" , "map_template.html")
         map_url = QUrl.fromLocalFile(map_file_path)
         self.setUrl(map_url)
+        
         self.map_is_loaded = False
-        self.loadFinished.connect(lambda: setattr(self, "map_is_loaded", True))
+        self.pending_style = None 
+
+        self.loadFinished.connect(self._on_load_finished) 
     
+    def _on_load_finished(self):
+        self.map_is_loaded = True
+
+        if self.pending_style:
+            self._apply_map_style(self.pending_style)
+
+    def on_theme_change(self, theme):
+        map_style = theme.map_style
+        self.pending_style = map_style
+
+        if self.map_is_loaded:
+            self._apply_map_style(map_style)
+
+    def _apply_map_style(self, style_name):
+        js_command = f"window.setMapTileLayer('{style_name}');"
+        self.page().runJavaScript(js_command)
+
     def draw_bbox(self, bounds:dict):
         if not self.map_is_loaded:
             return
@@ -40,14 +60,6 @@ class GISMapView(QWebEngineView):
             return
         js_command = "window.clearBBoxJS();"
         self.page().runJavaScript(js_command)
-
-    def on_theme_change(self, theme):
-        map_style = theme.map_style
-
-        js_command = f"window.setMapTileLayer('{map_style}');"
-        
-        if self.map_is_loaded:
-            self.page().runJavaScript(js_command)
 
 class ThreeDView(QFrame):
 

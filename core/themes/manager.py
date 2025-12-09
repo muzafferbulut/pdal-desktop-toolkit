@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QApplication
 from typing import Dict, Type
 from .base import BaseTheme
-from .styles import LightTheme, DarkTheme, HighContrastTheme
+from .styles import LightTheme, DarkTheme, HighContrastTheme, OceanicTheme, ForestTheme, MidnightTheme, SolarTheme
 
 class ThemeManager:
     _themes: Dict[str, Type[BaseTheme]] = {}
@@ -9,6 +9,10 @@ class ThemeManager:
     _themes[LightTheme.name] = LightTheme
     _themes[DarkTheme.name] = DarkTheme
     _themes[HighContrastTheme.name] = HighContrastTheme
+    _themes[OceanicTheme.name] = OceanicTheme
+    _themes[ForestTheme.name] = ForestTheme
+    _themes[MidnightTheme.name] = MidnightTheme
+    _themes[SolarTheme.name] = SolarTheme
 
     @classmethod
     def get_theme_names(cls):

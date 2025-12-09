@@ -5,6 +5,7 @@ from core.application_controller import ApplicationController
 from ui.stats_result_dialog import StatsResultDialog
 from ui.data_sources_panel import DataSourcesPanel
 from ui.tab_viewers import GISMapView, ThreeDView
+from core.settings_manager import SettingsManager
 from ui.filter_dialog import FilterParamsDialog
 from ui.batch_dialog import BatchProcessDialog
 from core.themes.manager import ThemeManager
@@ -13,6 +14,7 @@ from ui.toolbox_panel import ToolboxPanel
 from ui.merge_dialog import MergeDialog
 from ui.model_dialog import ModelDialog
 from ui.crop_dialog import CropDialog
+from PyQt5.QtGui import QCloseEvent
 from core.logger import Logger
 from typing import Optional
 from PyQt5.QtCore import Qt
@@ -27,7 +29,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Pdal Desktop Toolkit")
         self.setWindowIcon(QIcon("ui/resources/icons/app.png"))
         self.setGeometry(100, 100, 1200, 800)
+        self.settings_manager = SettingsManager()
         self._setup_ui()
+        self._restore_settings()
 
     def _setup_ui(self):
         central_widget = QWidget()
@@ -118,6 +122,7 @@ class MainWindow(QMainWindow):
         
         # toolbar actions
         self.file_toolbar = self.addToolBar("Toolbar")
+        self.file_toolbar.setObjectName("MainToolBar")
         self.file_toolbar.setMovable(False)
         self.file_toolbar.addAction(self.action_open_file)
         self.file_toolbar.addSeparator()
@@ -192,9 +197,13 @@ class MainWindow(QMainWindow):
     def _change_theme(self, theme_name: str):
         self.logger.info(f"Changing theme: {theme_name}")
         ThemeManager.apply_theme(theme_name)
+        
+        if hasattr(self, 'settings_manager'):
+            self.settings_manager.save_theme(theme_name)
 
     def _setup_log_panel(self):
         self.log_dock = QDockWidget("Log", self)
+        self.log_dock.setObjectName("LogDock")
         self.log_text_edit = QPlainTextEdit()
         self.log_text_edit.setReadOnly(True)
         self.log_dock.setWidget(self.log_text_edit)
@@ -214,10 +223,12 @@ class MainWindow(QMainWindow):
         self.data_sources_panel.style_changed_requested.connect(self.controller.handle_style_change)
 
         self.data_sources_dock = QDockWidget("Data Sources", self)
+        self.data_sources_dock.setObjectName("DataSourcesDock")
         self.data_sources_dock.setWidget(self.data_sources_panel)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.data_sources_dock)
 
         self.metadata_dock = QDockWidget("Metadata", self)
+        self.metadata_dock.setObjectName("MetadataDock")
         self.metadata_panel = MetadataPanel()
         self.metadata_dock.setWidget(self.metadata_panel)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
@@ -392,13 +403,13 @@ class MainWindow(QMainWindow):
             char_format.setForeground(QColor("red"))
         elif level == "WARNING":
             char_format.setForeground(QColor("darkorange"))
-        else:
-            char_format.setForeground(QColor("black"))
 
         cursor = self.log_text_edit.textCursor()
         cursor.movePosition(QTextCursor.End)
-        cursor.mergeCharFormat(char_format)
+        cursor.setCharFormat(char_format)
         cursor.insertText(message + "\n")
+        self.log_text_edit.setTextCursor(cursor)
+        self.log_text_edit.ensureCursorVisible()
 
     def _setup_central_widget(self):
         self.tab_widget = QTabWidget()
@@ -415,6 +426,7 @@ class MainWindow(QMainWindow):
 
     def _setup_toolbox_panel(self): 
         self.toolbox_dock = QDockWidget("Toolbox", self)
+        self.toolbox_dock.setObjectName("ToolboxDock")
         self.toolbox_panel = ToolboxPanel()
         self.toolbox_dock.setWidget(self.toolbox_panel)
 
@@ -521,3 +533,18 @@ class MainWindow(QMainWindow):
             if stages:
                 self.progressBar.show()
                 self.controller.start_batch_process(file_path, stages)
+
+    def _restore_settings(self):
+        """Uygulama açılışında ayarları ve temayı yükler."""
+        saved_theme = self.settings_manager.load_theme()
+        for action in self.themes_menu.actions():
+            if action.text() == saved_theme:
+                action.setChecked(True)
+        
+        self._change_theme(saved_theme)
+        self.settings_manager.load_window_state(self)
+
+    def closeEvent(self, event: QCloseEvent):
+        """Uygulama kapanırken tetiklenir."""
+        self.settings_manager.save_window_state(self)
+        super().closeEvent(event)
