@@ -10,7 +10,7 @@ def main():
     app_logger = Logger()
     reader_instance = LasLazReader() 
     app_controller = ApplicationController(
-        basic_reader=reader_instance,
+        basic_reader=reader_instance, 
         metadata_extractor=reader_instance,
         data_sampler=reader_instance,
         logger=app_logger

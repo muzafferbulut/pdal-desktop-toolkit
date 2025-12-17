@@ -53,12 +53,12 @@ class ApplicationController(QObject):
     def _connect_signals(self):
         # --- DataController Sinyalleri ---
         self.data_controller.file_loaded.connect(self.file_load_success_signal)
-        self.data_controller.file_removed.connect(self._on_layer_removed) # Özel işlem gerekiyor
+        self.data_controller.file_removed.connect(self._on_layer_removed) 
         self.data_controller.progress_update.connect(self.progress_update_signal)
         self.data_controller.status_message.connect(self.ui_status_message_signal)
         
         # --- ProcessController Sinyalleri ---
-        self.process_controller.layer_updated.connect(self._refresh_layer_view) # Veri değişince ekranı yenile
+        self.process_controller.layer_updated.connect(self._refresh_layer_view) 
         self.process_controller.stage_added.connect(self.stage_added_signal)
         self.process_controller.stats_ready.connect(self.stats_ready_signal)
         self.process_controller.progress_update.connect(self.progress_update_signal)
@@ -69,7 +69,7 @@ class ApplicationController(QObject):
         self.io_controller.progress_update.connect(self.progress_update_signal)
         self.io_controller.status_message.connect(self.ui_status_message_signal)
 
-        # --- Loglama Sinyalleri (Hepsini tek bir kanaldan UI'a ilet) ---
+        # --- Loglama Sinyalleri ---
         for controller in [self.data_controller, self.process_controller, self.io_controller]:
             controller.log_message.connect(self._handle_log_message)
 
@@ -109,7 +109,7 @@ class ApplicationController(QObject):
     def save_full_metadata(self, file_path: str, save_path: str):
         self.io_controller.save_metadata(file_path, save_path)
 
-    def get_layer_data(self, file_path: str) -> Optional[Dict]:
+    def get_layer_data(self, file_path: str) -> Optional[Any]:
         context = self.data_controller.get_layer(file_path)
         return context.current_render_data if context else None
 
@@ -134,15 +134,16 @@ class ApplicationController(QObject):
         if bounds and bounds.get("status"):
             self.draw_bbox_signal.emit(bounds)
             self.logger.info(f"'{file_name}' bounds drawn on map.")
-        
-        if context.current_render_data:
+
+        if context.current_render_data is not None:
             current_style = getattr(context, "active_style", Dimensions.Z)
-            self.render_data_signal.emit(file_path, current_style, True) # Reset view = True
+            self.render_data_signal.emit(file_path, current_style, True) 
             self.logger.info(f"'{file_name}' rendered in 3D view.")
 
     def handle_style_change(self, file_path: str, style_name: str):
         context = self.data_controller.get_layer(file_path)
-        if not context or not context.current_render_data: return
+        
+        if not context or context.current_render_data is None: return
 
         data = context.current_render_data
         file_name = os.path.basename(file_path)
@@ -152,7 +153,7 @@ class ApplicationController(QObject):
             return
         
         context.active_style = style_name
-        self.render_data_signal.emit(file_path, style_name, False) # Reset view = False
+        self.render_data_signal.emit(file_path, style_name, False) 
         self.logger.info(f"'{file_name}' style updated to '{style_name}'.")
 
     def handle_zoom_to_bbox(self, file_path: str):

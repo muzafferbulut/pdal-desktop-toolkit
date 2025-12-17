@@ -1,11 +1,12 @@
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QSplitter, QTreeWidget, 
-                             QTreeWidgetItem, QWidget, QTabWidget, QTableView, QPlainTextEdit,
-                             QPushButton, QLabel, QFormLayout, QLineEdit, QDialogButtonBox, 
-                             QMessageBox, QHeaderView, QStyle)
+                             QTreeWidgetItem, QWidget, QTableView, QLineEdit,
+                             QPushButton, QLabel, QFormLayout, QDialogButtonBox, 
+                             QMessageBox, QHeaderView, QStyle, QToolBar, QAction, QFileDialog, QInputDialog)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 from core.database.inspector import DbInspector
 from core.database.repository import Repository
+from core.database.workers import DbQueryWorker 
 
 class NewConnectionDialog(QDialog):
 
@@ -59,15 +60,13 @@ class NewConnectionDialog(QDialog):
         self.accept()
 
 class DbManagerDialog(QDialog):
-    """
-    Veritabanı yöneticisi ana penceresi.
-    Sol panelde ağaç yapısı (Connection -> Schema -> Table/View),
-    Sağ panelde veri önizleme ve SQL editörü bulunur.
-    """
-    def __init__(self, parent=None):
+
+    def __init__(self, data_controller, parent=None):
         super().__init__(parent)
+        self.data_controller = data_controller
         self.setWindowTitle("Database Manager")
-        self.resize(1000, 650)
+        self.resize(1000, 600)
+        
         self.repository = Repository()
         self.active_inspector = None
         self.current_schema = None
@@ -79,18 +78,25 @@ class DbManagerDialog(QDialog):
     def _setup_ui(self):
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
-        top_bar = QHBoxLayout()
-        btn_new_conn = QPushButton("New Connection")
-        btn_new_conn.setIcon(self.style().standardIcon(QStyle.SP_FileDialogNewFolder))
-        btn_new_conn.clicked.connect(self._open_new_conn_dialog)
-        btn_refresh = QPushButton("Refresh")
-        btn_refresh.setIcon(self.style().standardIcon(QStyle.SP_BrowserReload))
-        btn_refresh.clicked.connect(self._load_connections)
 
-        top_bar.addWidget(btn_new_conn)
-        top_bar.addWidget(btn_refresh)
-        top_bar.addStretch()
-        main_layout.addLayout(top_bar)
+        toolbar = QToolBar()
+        toolbar.setMovable(False)
+        
+        act_new = QAction(self.style().standardIcon(QStyle.SP_FileDialogNewFolder), "New Connection", self)
+        act_new.triggered.connect(self._open_new_conn_dialog)
+        toolbar.addAction(act_new)
+
+        act_refresh = QAction(self.style().standardIcon(QStyle.SP_BrowserReload), "Refresh", self)
+        act_refresh.triggered.connect(self._load_connections)
+        toolbar.addAction(act_refresh)
+        
+        toolbar.addSeparator()
+
+        act_imp_file = QAction(self.style().standardIcon(QStyle.SP_ArrowUp), "Import File to DB", self)
+        act_imp_file.triggered.connect(self._action_import_file)
+        toolbar.addAction(act_imp_file)
+
+        main_layout.addWidget(toolbar)
         splitter = QSplitter(Qt.Horizontal)
         
         self.tree = QTreeWidget()
@@ -99,42 +105,50 @@ class DbManagerDialog(QDialog):
         self.tree.itemClicked.connect(self._on_item_clicked)
         splitter.addWidget(self.tree)
 
-        self.tabs = QTabWidget()
+        right_panel = QWidget()
+        right_layout = QVBoxLayout()
+        right_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.tab_info = QWidget()
-        info_layout = QVBoxLayout()
-        self.table_view = QTableView()
-        info_layout.addWidget(QLabel("Data Preview (First 10 rows):"))
-        info_layout.addWidget(self.table_view)
-        self.tab_info.setLayout(info_layout)
+        filter_layout = QHBoxLayout()
         
-        self.tab_sql = QWidget()
-        sql_layout = QVBoxLayout()
-        self.sql_editor = QPlainTextEdit()
-        self.sql_editor.setPlaceholderText("SELECT * FROM ...")
+        self.lbl_table = QLabel("No Table Selected")
+        self.lbl_table.setStyleSheet("font-weight: bold; color: #555;")
         
-        btn_run_sql = QPushButton("Execute")
-        btn_run_sql.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
-        btn_run_sql.clicked.connect(self._run_custom_sql)
+        self.le_filter = QLineEdit()
+        self.le_filter.setPlaceholderText("Filter (e.g. filename like 'file%'")
+        self.le_filter.returnPressed.connect(self._run_filter_query)
         
-        self.sql_result_view = QTableView()
-        
-        sql_layout.addWidget(QLabel("Query:"))
-        sql_layout.addWidget(self.sql_editor)
-        sql_layout.addWidget(btn_run_sql)
-        sql_layout.addWidget(QLabel("Result:"))
-        sql_layout.addWidget(self.sql_result_view)
-        self.tab_sql.setLayout(sql_layout)
+        btn_run = QPushButton("Filter")
+        btn_run.setIcon(self.style().standardIcon(QStyle.SP_MediaPlay))
+        btn_run.clicked.connect(self._run_filter_query)
 
-        self.tabs.addTab(self.tab_info, "Table Info")
-        self.tabs.addTab(self.tab_sql, "SQL Window")
+        self.btn_load_canvas = QPushButton("Load to Canvas")
+        self.btn_load_canvas.setIcon(self.style().standardIcon(QStyle.SP_ArrowLeft))
+        self.btn_load_canvas.clicked.connect(self._on_load_to_canvas)
+        self.btn_load_canvas.setEnabled(False)
+
+        filter_layout.addWidget(QLabel("WHERE:"))
+        filter_layout.addWidget(self.le_filter)
+        filter_layout.addWidget(btn_run)
+        filter_layout.addStretch()
+        filter_layout.addWidget(self.btn_load_canvas)
         
-        splitter.addWidget(self.tabs)
-        splitter.setStretchFactor(1, 1)
+        top_container = QVBoxLayout()
+        top_container.addWidget(self.lbl_table)
+        top_container.addLayout(filter_layout)
+        
+        right_layout.addLayout(top_container)
+        
+        self.result_view = QTableView()
+        right_layout.addWidget(self.result_view)
+        
+        right_panel.setLayout(right_layout)
+        splitter.addWidget(right_panel)
+        
+        splitter.setStretchFactor(1, 3) 
         main_layout.addWidget(splitter)
 
     def _load_connections(self):
-
         self.tree.clear()
         conns = self.repository.get_connections()
         for c in conns:
@@ -142,7 +156,7 @@ class DbManagerDialog(QDialog):
             item.setText(0, c["name"])
             item.setIcon(0, self.style().standardIcon(QStyle.SP_DriveNetIcon))
             item.setData(0, Qt.UserRole, {"type": "connection", "data": c})
-            QTreeWidgetItem(item) 
+            QTreeWidgetItem(item)
 
     def _open_new_conn_dialog(self):
         dlg = NewConnectionDialog(self)
@@ -160,7 +174,6 @@ class DbManagerDialog(QDialog):
         node_type = node_data.get("type")
 
         if node_type == "connection":
-            # --- Bağlantı ise ŞEMALARI yükle ---
             conn_info = node_data["data"]
             try:
                 inspector = DbInspector(conn_info)
@@ -168,95 +181,112 @@ class DbManagerDialog(QDialog):
                 for schema in schemas:
                     child = QTreeWidgetItem(item)
                     child.setText(0, schema)
-                    child.setData(0, Qt.UserRole, {
-                        "type": "schema", 
-                        "name": schema, 
-                        "conn": conn_info
-                    })
-                    # Şema İkonu
+                    child.setData(0, Qt.UserRole, {"type": "schema", "name": schema, "conn": conn_info})
                     child.setIcon(0, QIcon("ui/resources/icons/schema.png"))
-                    QTreeWidgetItem(child) # Dummy item (altında tablolar olacak)
+                    QTreeWidgetItem(child) 
             except Exception as e:
                 QMessageBox.critical(self, "Connection Error", str(e))
 
         elif node_type == "schema":
-            # --- Şema ise TABLO ve VIEW'ları yükle ---
             conn_info = node_data["conn"]
             schema_name = node_data["name"]
-            
             try:
                 inspector = DbInspector(conn_info)
-                
-                # 1. Tablolar
                 tables = inspector.get_tables(schema_name)
                 for table in tables:
                     child = QTreeWidgetItem(item)
                     child.setText(0, table)
-                    child.setData(0, Qt.UserRole, {
-                        "type": "table", 
-                        "schema": schema_name, 
-                        "name": table, 
-                        "conn": conn_info
-                    })
-                    # Tablo İkonu
+                    child.setData(0, Qt.UserRole, {"type": "table", "schema": schema_name, "name": table, "conn": conn_info})
                     child.setIcon(0, QIcon("ui/resources/icons/table.png"))
-
-                # 2. View'lar
-                views = inspector.get_views(schema_name)
-                for view in views:
-                    child = QTreeWidgetItem(item)
-                    child.setText(0, view)
-                    child.setData(0, Qt.UserRole, {
-                        "type": "view", 
-                        "schema": schema_name, 
-                        "name": view, 
-                        "conn": conn_info
-                    })
-                    # View İkonu
-                    child.setIcon(0, QIcon("ui/resources/icons/view.png"))
-            
-            except Exception as e:
-                # Şema boşsa veya erişim hatası varsa kullanıcıyı yormadan logla veya geç
-                print(f"Error loading schema contents: {e}")
+            except Exception:
+                pass
 
     def _on_item_clicked(self, item, col):
         node_data = item.data(0, Qt.UserRole)
         if not node_data: return
 
-        if node_data["type"] in ["table", "view"]:
+        if node_data["type"] == "table":
             self.current_schema = node_data["schema"]
             self.current_table = node_data["name"]
             self.active_inspector = DbInspector(node_data["conn"])
-            sql = f"SELECT * FROM {self.current_schema}.{self.current_table} LIMIT 10"
-            self._execute_sql_to_view(sql, self.table_view)
-            self.tabs.setCurrentIndex(0)
+            
+            self.lbl_table.setText(f"Active Table: {self.current_schema}.{self.current_table}")
+            self.le_filter.clear()
+            self.btn_load_canvas.setEnabled(False)
+            
+            self._run_filter_query()
 
-    def _run_custom_sql(self):
-        sql = self.sql_editor.toPlainText()
-        if not sql:
+    def _run_filter_query(self):
+        """
+        Kullanıcının girdiği filtreye göre SQL oluşturur ve çalıştırır.
+        """
+        if not self.active_inspector or not self.current_table:
             return
 
-        if not self.active_inspector:
-            QMessageBox.warning(self, "No Connection", "Please select a table/schema from the tree to establish context first.")
-            return
-
-        self._execute_sql_to_view(sql, self.sql_result_view)
-
-    def _execute_sql_to_view(self, sql, view_widget):
-        if not self.active_inspector: return
+        filter_text = self.le_filter.text().strip()
         
-        result = self.active_inspector.execute_query(sql)
-        if result["status"]:
-            df = result["data"]
-            model = QStandardItemModel(df.shape[0], df.shape[1])
-            model.setHorizontalHeaderLabels(df.columns)
-            
-            for row in range(df.shape[0]):
-                for col in range(df.shape[1]):
-                    val = str(df.iat[row, col])
-                    model.setItem(row, col, QStandardItem(val))
-            
-            view_widget.setModel(model)
-            view_widget.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        else:
-            QMessageBox.critical(self, "SQL Error", result["error"])
+        sql = f"SELECT * FROM {self.current_schema}.{self.current_table}"
+        if filter_text:
+            if not filter_text.upper().startswith("WHERE"):
+                sql += f" WHERE {filter_text}"
+            else:
+                sql += f" {filter_text}"
+        
+        sql += " LIMIT 10"
+
+        self.result_view.setDisabled(True)
+        
+        self.worker = DbQueryWorker(self.active_inspector, sql)
+        self.worker.finished_success.connect(self._on_query_success)
+        self.worker.finished_error.connect(lambda err: QMessageBox.critical(self, "Query Error", err))
+        self.worker.finished.connect(lambda: self.result_view.setDisabled(False))
+        self.worker.start()
+
+    def _on_query_success(self, df):
+        model = QStandardItemModel(df.shape[0], df.shape[1])
+        model.setHorizontalHeaderLabels(list(df.columns))
+        for row in range(df.shape[0]):
+            for col in range(df.shape[1]):
+                val = str(df.iat[row, col])
+                model.setItem(row, col, QStandardItem(val))
+        
+        self.result_view.setModel(model)
+        self.result_view.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.btn_load_canvas.setEnabled(True)
+
+    def _on_load_to_canvas(self):
+        """
+        Filtrelenmiş veriyi DataController üzerinden yükler.
+        """
+        if not self.active_inspector or not self.current_table: return
+        
+        where_clause = self.le_filter.text().strip()
+        
+        try:
+            self.data_controller.load_from_database(
+                conn_info=self.active_inspector.conn_info,
+                schema=self.current_schema,
+                table=self.current_table,
+                where=where_clause
+            )
+            self.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", str(e))
+
+    def _action_import_file(self):
+        if not self.active_inspector:
+            QMessageBox.warning(self, "Warning", "Please select a schema first.")
+            return
+
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "Point Cloud (*.las *.laz)")
+        if not file_path: return
+
+        table_name, ok = QInputDialog.getText(self, "Table Name", "Enter destination table name:")
+        if ok and table_name:
+            full_table_name = f"{self.current_schema}.{table_name}" if self.current_schema else table_name
+            self.data_controller.import_layer_to_db(
+                source_path=file_path, 
+                conn_info=self.active_inspector.conn_info, 
+                table_name=full_table_name
+            )
+            QMessageBox.information(self, "Started", "Import process started in background.")

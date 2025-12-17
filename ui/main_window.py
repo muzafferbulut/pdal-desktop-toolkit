@@ -137,7 +137,7 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_db_manager)
 
     def _open_db_manager(self):
-        dlg = DbManagerDialog(self)
+        dlg = DbManagerDialog(self.controller.data_controller, self) 
         dlg.exec_()
 
     def _get_active_layer_path(self) -> Optional[str]:
@@ -298,7 +298,7 @@ class MainWindow(QMainWindow):
     def _handle_render_data(self, file_path: str, style_name: str, reset_view: bool):
         sample_data = self.controller.get_layer_data(file_path)
         
-        if not sample_data:
+        if sample_data is None:
             self.logger.warning(f"Render data is NULL: {file_path}")
             return
         
