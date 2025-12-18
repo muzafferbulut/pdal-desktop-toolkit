@@ -179,11 +179,18 @@ class DbManagerDialog(QDialog):
                 inspector = DbInspector(conn_info)
                 schemas = inspector.get_schemas()
                 for schema in schemas:
+                    if schema in ["information_schema", "pg_catalog"]:
+                        continue
+                        
                     child = QTreeWidgetItem(item)
                     child.setText(0, schema)
-                    child.setData(0, Qt.UserRole, {"type": "schema", "name": schema, "conn": conn_info})
+                    child.setData(0, Qt.UserRole, {
+                        "type": "schema", 
+                        "name": schema, 
+                        "conn": conn_info
+                    })
                     child.setIcon(0, QIcon("ui/resources/icons/schema.png"))
-                    QTreeWidgetItem(child) 
+                    QTreeWidgetItem(child)
             except Exception as e:
                 QMessageBox.critical(self, "Connection Error", str(e))
 
@@ -196,21 +203,41 @@ class DbManagerDialog(QDialog):
                 for table in tables:
                     child = QTreeWidgetItem(item)
                     child.setText(0, table)
-                    child.setData(0, Qt.UserRole, {"type": "table", "schema": schema_name, "name": table, "conn": conn_info})
+                    child.setData(0, Qt.UserRole, {
+                        "type": "table", 
+                        "schema": schema_name, 
+                        "name": table, 
+                        "conn": conn_info
+                    })
                     child.setIcon(0, QIcon("ui/resources/icons/table.png"))
-            except Exception:
-                pass
+
+                views = inspector.get_views(schema_name)
+                for view in views:
+                    child = QTreeWidgetItem(item)
+                    child.setText(0, view)
+                    child.setData(0, Qt.UserRole, {
+                        "type": "view", 
+                        "schema": schema_name, 
+                        "name": view, 
+                        "conn": conn_info
+                    })
+                    child.setIcon(0, QIcon("ui/resources/icons/view.png"))
+            
+            except Exception as e:
+                print(f"Error loading schema content: {e}")
 
     def _on_item_clicked(self, item, col):
         node_data = item.data(0, Qt.UserRole)
         if not node_data: return
 
-        if node_data["type"] == "table":
+        if node_data["type"] in ["table", "view"]:
             self.current_schema = node_data["schema"]
             self.current_table = node_data["name"]
             self.active_inspector = DbInspector(node_data["conn"])
             
-            self.lbl_table.setText(f"Active Table: {self.current_schema}.{self.current_table}")
+            type_label = "View" if node_data["type"] == "view" else "Table"
+            self.lbl_table.setText(f"Active {type_label}: {self.current_schema}.{self.current_table}")
+            
             self.le_filter.clear()
             self.btn_load_canvas.setEnabled(False)
             
