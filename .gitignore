@@ -7,6 +7,9 @@ __pycache__/
 *.so
 app.db
 
+venv
+test.las
+
 # Distribution / packaging
 .Python
 build/
