@@ -18,7 +18,7 @@ from ui.crop_dialog import CropDialog
 from PyQt5.QtGui import QCloseEvent
 from core.logger import Logger
 from typing import Optional
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 import os
 
 class MainWindow(QMainWindow):
@@ -33,6 +33,19 @@ class MainWindow(QMainWindow):
         self.settings_manager = SettingsManager()
         self._setup_ui()
         self._restore_settings()
+
+        self.resize_timer = QTimer()
+        self.resize_timer.setSingleShot(True)
+        self.resize_timer.timeout.connect(self._actual_resize_handler)
+
+    def resize_event(self, event):
+        self.resize_timer.start(200)
+        super().resizeEvent(event)
+
+    def _actual_resize_handler(self):
+        if hasattr(self, 'three_d_view') and self.three_d_view.plotter:
+            self.three_d_view.plotter.setUpdatesEnabled(True)
+            self.three_d_view.plotter.render()
 
     def _setup_ui(self):
         central_widget = QWidget()

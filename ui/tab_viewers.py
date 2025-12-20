@@ -209,3 +209,9 @@ class ThreeDView(QFrame):
     def disable_crop_gizmo(self):
         if self.plotter:
             self.plotter.clear_box_widgets()
+
+    def resizeEvent(self, event):
+        if self.plotter:
+            self.plotter.setUpdatesEnabled(False) 
+        
+        super().resizeEvent(event)

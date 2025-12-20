@@ -44,13 +44,11 @@ class RenderUtils:
         if Dimensions.X not in data_dict:
             return data_dict
         
-        x_data = data_dict[Dimensions.X]
-        total_points = len(x_data)
-
+        total_points = len(data_dict[Dimensions.X])
         if total_points <= RenderUtils.MAX_VISIBLE_POINTS:
             return data_dict
         
-        step = total_points // RenderUtils.MAX_VISIBLE_POINTS
+        step = max(1, total_points // RenderUtils.MAX_VISIBLE_POINTS)
         
         if step <= 1:
             return data_dict
