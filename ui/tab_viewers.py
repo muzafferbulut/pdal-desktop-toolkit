@@ -158,7 +158,7 @@ class ThreeDView(QFrame):
                 point_cloud,
                 scalars=scalars,
                 rgba=rgb, 
-                render_points_as_spheres=True,
+                render_points_as_spheres=False,
                 point_size=1,
                 cmap=cmap if not rgb else None,
                 scalar_bar_args=scalar_bar_args if not rgb else None,
