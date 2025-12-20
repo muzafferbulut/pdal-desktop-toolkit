@@ -52,7 +52,7 @@ class ApplicationController(QObject):
 
     def _connect_signals(self):
         # --- DataController Sinyalleri ---
-        self.data_controller.file_loaded.connect(self.file_load_success_signal)
+        self.data_controller.file_loaded.connect(self._on_file_loaded)
         self.data_controller.file_removed.connect(self._on_layer_removed) 
         self.data_controller.progress_update.connect(self.progress_update_signal)
         self.data_controller.status_message.connect(self.ui_status_message_signal)
@@ -176,3 +176,7 @@ class ApplicationController(QObject):
 
     def start_batch_process(self, file_path: str, stages: list):
         self.process_controller.apply_batch_process(file_path, stages)
+
+    def _on_file_loaded(self, file_path:str, file_name:str):
+        self.file_load_success_signal.emit(file_path, file_name)
+        self.handle_double_click(file_path, file_name)

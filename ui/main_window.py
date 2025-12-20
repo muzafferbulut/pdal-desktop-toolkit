@@ -311,7 +311,6 @@ class MainWindow(QMainWindow):
             color_by=style_name, 
             reset_view=reset_view
         )
-        self.tab_widget.setCurrentWidget(self.three_d_view)
 
     def _handle_draw_bbox(self, bounds: dict):
         self.map_view.draw_bbox(bounds)
