@@ -32,10 +32,15 @@ class FilterWorker(QObject):
                 if self.is_interrupted:
                     break
 
-                if i == 0:
-                    pipeline = pdal.Pipeline(json.dumps([stage_conf]))
+                if isinstance(stage_conf, list):
+                    payload = json.dumps(stage_conf)
                 else:
-                    pipeline = pdal.Pipeline(json.dumps([stage_conf]), arrays=current_arrays)
+                    payload = json.dumps([stage_conf])
+
+                if i == 0:
+                    pipeline = pdal.Pipeline(payload)
+                else:
+                    pipeline = pdal.Pipeline(payload, arrays=current_arrays)
 
                 pipeline.execute()
                 

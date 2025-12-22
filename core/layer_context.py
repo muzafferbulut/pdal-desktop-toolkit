@@ -46,7 +46,10 @@ class LayerContext:
 
         for stage in self.stages:
             if stage.is_active:
-                pipeline.append(stage.config)
+                if isinstance(stage.config, list):
+                    pipeline.extend(stage.config)
+                else:
+                    pipeline.append(stage.config)
         
         return pipeline
     
