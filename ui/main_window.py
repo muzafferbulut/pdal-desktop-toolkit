@@ -73,6 +73,8 @@ class MainWindow(QMainWindow):
         self.controller.update_metadata_signal.connect(self.metadata_panel.update_metadata)
         self.controller.clear_metadata_signal.connect(self.metadata_panel.clear_metadata)
         self.controller.export_success_signal.connect(self._handle_export_success)
+        self.controller.zoom_map_only_signal.connect(self.map_view.zoom_only)
+        self.controller.focus_3d_mesh_signal.connect(self.three_d_view.zoom_to_mesh)
         
         self.action_open_file = QAction(QIcon("ui/resources/icons/open.png"), "Open File", self)
         self.action_open_file.setShortcut("Ctrl+O")
@@ -237,13 +239,14 @@ class MainWindow(QMainWindow):
         self.data_sources_panel = DataSourcesPanel()
         self.data_sources_panel.file_single_clicked.connect(self._on_file_single_clicked)
         self.data_sources_panel.file_double_clicked.connect(self._on_file_double_clicked)
-        self.data_sources_panel.zoom_to_bbox_requested.connect(self.controller.handle_zoom_to_bbox)
+        self.data_sources_panel.zoom_to_bbox_requested.connect(self._on_zoom_to_bbox_requested)
         self.data_sources_panel.export_layer_requested.connect(self._on_toolbar_export_layer) 
         self.data_sources_panel.save_pipeline_requested.connect(self._ask_save_pipeline)
         self.data_sources_panel.save_full_metadata_requested.connect(self._ask_save_full_metadata)
         self.data_sources_panel.remove_layer_requested.connect(self.controller.handle_remove_layer)
         self.data_sources_panel.remove_stage_requested.connect(self.controller.handle_remove_stage)
         self.data_sources_panel.style_changed_requested.connect(self.controller.handle_style_change)
+        self.data_sources_panel.visibility_changed_requested.connect(self._handle_layer_visibility)
 
         self.data_sources_dock = QDockWidget("Data Sources", self)
         self.data_sources_dock.setObjectName("DataSourcesDock")
@@ -255,6 +258,19 @@ class MainWindow(QMainWindow):
         self.metadata_panel = MetadataPanel()
         self.metadata_dock.setWidget(self.metadata_panel)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.metadata_dock)
+    
+    def _handle_layer_visibility(self, file_path: str, is_visible: bool):
+        self.controller.handle_visibility_change(file_path, is_visible)
+        self.three_d_view.set_layer_visibility(file_path, is_visible)
+
+        if is_visible:
+            context = self.controller.data_controller.get_layer(file_path)
+            if context and context.bounds and context.bounds.get("status"):
+                self.map_view.draw_bbox(file_path, context.bounds)
+        else:
+            self.map_view.clear_bbox(file_path)
+            
+        self.logger.info(f"Layer visibility changed: {os.path.basename(file_path)} -> {is_visible}")
 
     def _handle_tool_selection(self, tool_name:str):
         current_file = self.data_sources_panel.get_selected_file_path()
@@ -303,9 +319,17 @@ class MainWindow(QMainWindow):
 
     def _handle_controller_file_remove(self, file_path: str):
         self.data_sources_panel.remove_layer(file_path)
+        self.three_d_view.remove_layer_actor(file_path)
+        self.map_view.clear_bbox(file_path)
+        self.metadata_panel.clear_metadata()
+        self.statusBar().showMessage("Layer removed.", 3000)
 
-    def _on_file_single_clicked(self, file_path: str, file_name: str):
-        self.controller.handle_single_click(file_path, file_name)
+    def _on_file_single_clicked(self, file_path: str):
+        self.controller.handle_layer_selection(file_path)
+    
+    def _on_zoom_to_bbox_requested(self, file_path: str):
+        active_index = self.tab_widget.currentIndex()
+        self.controller.handle_zoom_to_bbox(file_path, active_index)
 
     def _on_file_double_clicked(self, file_path: str, file_name: str):
         self.controller.handle_double_click(file_path, file_name)
@@ -322,18 +346,21 @@ class MainWindow(QMainWindow):
              return
 
         self.three_d_view.render_point_cloud(
+            file_path, 
             sample_data, 
             color_by=style_name, 
             reset_view=reset_view
         )
 
     def _handle_draw_bbox(self, bounds: dict):
-        self.map_view.draw_bbox(bounds)
-        self.tab_widget.setCurrentWidget(self.map_view)
+        active_path = self.controller.data_controller.active_layer_path
+        if active_path:
+            self.map_view.draw_bbox(active_path, bounds)
 
     def _handle_clear_views(self):
         if self.three_d_view.plotter:
-             self.three_d_view.plotter.clear()
+            self.three_d_view.layer_actors.clear()
+            self.three_d_view.plotter.clear()
         self.map_view.draw_bbox({})
         self.map_view.clear_bbox()
 

@@ -26,22 +26,6 @@
         font-family: "Segoe UI", sans-serif;
         font-size: 13px;
       }
-
-      .leaflet-control-layers label {
-        cursor: pointer;
-        padding: 2px 6px;
-        border-radius: 4px;
-        transition: background 0.2s;
-      }
-
-      .leaflet-control-layers label:hover {
-        background: rgba(0, 123, 255, 0.1);
-      }
-
-      .leaflet-control-layers-separator {
-        border-top: 1px solid rgba(0, 0, 0, 0.1);
-        margin: 4px 0;
-      }
     </style>
   </head>
   <body>
@@ -53,28 +37,20 @@
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
           maxZoom: 19,
-          attribution: "© OpenStreetMap contributors",
         }
       );
 
       var esri = L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/" +
-          "World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
         {
           maxZoom: 19,
-          attribution: "Tiles © Esri, Maxar, Earthstar Geographics",
         }
       );
 
       var hybrid = L.layerGroup([
         esri,
         L.tileLayer(
-          "https://server.arcgisonline.com/ArcGIS/rest/services/" +
-            "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
-          {
-            maxZoom: 19,
-            attribution: "© Esri",
-          }
+          "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
         ),
       ]);
 
@@ -88,51 +64,70 @@
 
       L.control.layers(baseMaps, null, { collapsed: true }).addTo(map);
 
-      var boundsLayer = L.layerGroup().addTo(map);
+      var bboxes = {};
 
-      window.drawBBoxJS = function (minx, miny, maxx, maxy) {
-        boundsLayer.clearLayers();
+      window.drawBBoxJS = function (layerId, minx, miny, maxx, maxy) {
+        if (bboxes[layerId]) {
+          map.removeLayer(bboxes[layerId]);
+        }
+
         var bounds = L.latLngBounds([
           [miny, minx],
           [maxy, maxx],
         ]);
-        L.rectangle(bounds, {
+
+        var rect = L.rectangle(bounds, {
           color: "#ff7800",
-          weight: 3,
-          fillOpacity: 0.2,
-        }).addTo(boundsLayer);
+          weight: 2,
+          fillOpacity: 0.1,
+          dashArray: "5, 5",
+        }).addTo(map);
+
+        bboxes[layerId] = rect;
+
         map.fitBounds(bounds, { padding: [20, 20] });
       };
 
-      window.clearBBoxJS = function () {
-        if (boundsLayer) {
-          boundsLayer.clearLayers();
+      window.clearBBoxJS = function (layerId) {
+        if (layerId) {
+          if (bboxes[layerId]) {
+            map.removeLayer(bboxes[layerId]);
+            delete bboxes[layerId];
+          }
+        } else {
+          for (var id in bboxes) {
+            map.removeLayer(bboxes[id]);
+          }
+          bboxes = {};
         }
+      };
+
+      window.zoomOnlyJS = function (minx, miny, maxx, maxy) {
+        var bounds = L.latLngBounds([
+          [miny, minx],
+          [maxy, maxx],
+        ]);
+        map.fitBounds(bounds, { padding: [20, 20] });
       };
 
       var currentLayer = null;
 
-      function setMapTileLayer(style) {
+      window.setMapTileLayer = function (style) {
         if (typeof map === "undefined") return;
         if (currentLayer) {
           map.removeLayer(currentLayer);
         }
 
-        var url = "";
-        var attrib = "";
+        var url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
         if (style === "carto_dark") {
           url = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-          attrib = "&copy; OpenStreetMap &copy; CARTO";
-        } else {
-          url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-          attrib = "&copy; OpenStreetMap contributors";
         }
+
         currentLayer = L.tileLayer(url, {
-          attribution: attrib,
           maxZoom: 19,
         }).addTo(map);
-      }
+      };
     </script>
   </body>
 </html>

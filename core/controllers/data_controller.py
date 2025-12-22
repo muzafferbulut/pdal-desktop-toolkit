@@ -27,6 +27,7 @@ class DataController(QObject):
         self.logger = logger
         
         self._data_cache: Dict[str, LayerContext] = {}
+        self.active_layer_path: Optional[str] = None
         self.reader_thread = None
         self.merge_thread = None
         self.db_import_thread = None
@@ -41,12 +42,6 @@ class DataController(QObject):
         file_name = os.path.basename(file_path)
         self.status_message.emit(f"Loading: {file_name}...", 0)
         self.progress_update.emit(10)
-
-        if self.reader_thread is not None:
-            if self.reader_thread.isRunning():
-                self.reader_thread.quit()
-                self.reader_thread.wait()
-            self.reader_thread = None
 
         self.reader_thread = QThread()
         self.reader_worker = ReaderWorker(
@@ -156,6 +151,7 @@ class DataController(QObject):
         context.current_render_data = sample_data
         context.bounds = bounds
         self._data_cache[file_path] = context
+        self.active_layer_path = file_path
 
         self.status_message.emit(f"'{file_name}' loaded successfully!", 5000)
         self.log_message.emit("INFO", f"File '{file_name}' loaded successfully.")
@@ -165,6 +161,8 @@ class DataController(QObject):
     def remove_layer(self, file_path: str):
         if file_path in self._data_cache:
             del self._data_cache[file_path]
+            if hasattr(self, 'active_layer_path') and self.active_layer_path == file_path:
+                self.active_layer_path = None
             file_name = os.path.basename(file_path)
             self.log_message.emit("INFO", f"File '{file_name}' removed from cache.")
             self.file_removed.emit(file_path)

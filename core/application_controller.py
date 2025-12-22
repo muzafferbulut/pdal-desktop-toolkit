@@ -17,6 +17,8 @@ class ApplicationController(QObject):
     log_error_signal = pyqtSignal(str)
     log_info_signal = pyqtSignal(str)
     ui_status_message_signal = pyqtSignal(str, int)
+    zoom_map_only_signal = pyqtSignal(dict)
+    focus_3d_mesh_signal = pyqtSignal(str)
     
     # Görünüm Sinyalleri
     render_data_signal = pyqtSignal(str, str, bool) # (filepath, style_name, reset_view)
@@ -100,6 +102,10 @@ class ApplicationController(QObject):
     def start_model_process(self, file_path: str, params: dict):
         self.process_controller.generate_model(file_path, params)
 
+    def handle_layer_selection(self, file_path: str):
+        self.data_controller.active_layer_path = file_path
+        self.handle_single_click(file_path, os.path.basename(file_path))
+
     def start_export_process(self, file_path: str, save_path: str):
         self.io_controller.export_layer(file_path, save_path)
 
@@ -156,16 +162,28 @@ class ApplicationController(QObject):
         self.render_data_signal.emit(file_path, style_name, False) 
         self.logger.info(f"'{file_name}' style updated to '{style_name}'.")
 
-    def handle_zoom_to_bbox(self, file_path: str):
+    def handle_zoom_to_bbox(self, file_path: str, active_tab_index: int):
         context = self.data_controller.get_layer(file_path)
-        if context and context.bounds and context.bounds.get("status"):
-            self.draw_bbox_signal.emit(context.bounds)
-            self.logger.info(f"Zoomed to '{os.path.basename(file_path)}' bounds.")
+        if not (context and context.bounds and context.bounds.get("status")):
+            return
 
+        is_visible = getattr(context, 'is_visible', True)
+
+        if active_tab_index == 0:
+            if is_visible:
+                self.draw_bbox_signal.emit(context.bounds)
+            else:
+                self.zoom_map_only_signal.emit(context.bounds)
+
+        elif active_tab_index == 1:
+            if is_visible:
+                current_style = getattr(context, "active_style", Dimensions.Z)
+                self.render_data_signal.emit(file_path, current_style, True)
+            else:
+                self.focus_3d_mesh_signal.emit(file_path)
+                
     def _on_layer_removed(self, file_path: str):
         self.file_removed_signal.emit(file_path)
-        self.clear_views_signal.emit()
-        self.clear_metadata_signal.emit()
         self.ui_status_message_signal.emit("Layer removed.", 3000)
 
     def _refresh_layer_view(self, file_path: str):
@@ -180,3 +198,8 @@ class ApplicationController(QObject):
     def _on_file_loaded(self, file_path:str, file_name:str):
         self.file_load_success_signal.emit(file_path, file_name)
         self.handle_double_click(file_path, file_name)
+
+    def handle_visibility_change(self, file_path: str, is_visible: bool):
+        context = self.data_controller.get_layer(file_path)
+        if context:
+            context.is_visible = is_visible

@@ -39,26 +39,34 @@ class GISMapView(QWebEngineView):
         js_command = f"window.setMapTileLayer('{style_name}');"
         self.page().runJavaScript(js_command)
 
-    def draw_bbox(self, bounds:dict):
+    def draw_bbox(self, layer_id: str, bounds: dict):
         if not self.map_is_loaded:
             return
         
-        minx = bounds.get('minx')
-        miny = bounds.get('miny')
-        maxx = bounds.get('maxx')
-        maxy = bounds.get('maxy')
+        minx, miny = bounds.get('minx'), bounds.get('miny')
+        maxx, maxy = bounds.get('maxx'), bounds.get('maxy')
 
         if None in [minx, miny, maxx, maxy]:
-            print("Invalid bounds data, skipping map draw.")
             return
 
-        js_command = f"window.drawBBoxJS({minx}, {miny}, {maxx}, {maxy});"
+        js_command = f"window.drawBBoxJS('{layer_id}', {minx}, {miny}, {maxx}, {maxy});"
         self.page().runJavaScript(js_command)
 
-    def clear_bbox(self):
+    def clear_bbox(self, layer_id: str = None):
+        """
+        layer_id verilirse sadece o katmanı, 
+        verilmezse (None) tüm haritayı temizler.
+        """
         if not self.map_is_loaded:
             return
-        js_command = "window.clearBBoxJS();"
+            
+        js_id = f"'{layer_id}'" if layer_id else "null"
+        js_command = f"window.clearBBoxJS({js_id});"
+        self.page().runJavaScript(js_command)
+
+    def zoom_only(self, bounds: dict):
+        if not self.map_is_loaded: return
+        js_command = f"window.zoomOnlyJS({bounds['minx']}, {bounds['miny']}, {bounds['maxx']}, {bounds['maxy']});"
         self.page().runJavaScript(js_command)
 
 class ThreeDView(QFrame):
@@ -73,7 +81,7 @@ class ThreeDView(QFrame):
         self.plotter = QtInteractor(self)
         self.layout.addWidget(self.plotter)
 
-        self.point_actor = None
+        self.layer_actors = {}
         self.current_mesh = None
 
         self.plotter.set_background("#42535C", top="#BBE2F1")
@@ -81,7 +89,7 @@ class ThreeDView(QFrame):
         self.plotter.camera_position = "iso"
         self.plotter.show_axes()
 
-    def render_point_cloud(self, data_dict: dict, color_by: str = "Elevation", reset_view: bool = True):
+    def render_point_cloud(self, file_path:str, data_dict: dict, color_by: str = "Elevation", reset_view: bool = True):
         """
         data_dict: {x, y, z, intensity, red, green...}
         color_by: 'Elevation', 'Intensity', 'RGB', 'Classification'
@@ -140,8 +148,9 @@ class ThreeDView(QFrame):
             scalars = "RGB"
             rgb = True
 
-        self.plotter.clear()
         self.plotter.add_axes()
+        if file_path in self.layer_actors:
+            self.plotter.remove_actor(self.layer_actors[file_path])
 
         scalar_bar_args={
             "title": None, 
@@ -154,18 +163,20 @@ class ThreeDView(QFrame):
         }
         
         try:
-            self.point_actor = self.plotter.add_mesh(
+            new_actor = self.plotter.add_mesh(
                 point_cloud,
                 scalars=scalars,
                 rgba=rgb, 
                 render_points_as_spheres=False,
                 point_size=1,
                 cmap=cmap if not rgb else None,
+                name=file_path,
                 scalar_bar_args=scalar_bar_args if not rgb else None,
                 categories=bool(annotations), 
                 show_scalar_bar=not rgb,
                 annotations=annotations if annotations else None 
             )
+            self.layer_actors[file_path] = new_actor
             
             if rgb:
                 self.plotter.remove_scalar_bar()
@@ -179,7 +190,22 @@ class ThreeDView(QFrame):
             
         except Exception as e:
             print(f"Render error: {e}")
+
+    def zoom_to_mesh(self, file_path: str):
+        if hasattr(self, 'layer_actors') and file_path in self.layer_actors:
+            actor = self.layer_actors[file_path]
+            if actor:
+                self.plotter.reset_camera(render=True, bounds=actor.GetBounds())
         
+    def set_layer_visibility(self, file_path: str, is_visible: bool):
+        if self.layer_actors is None or file_path not in self.layer_actors:
+            return
+
+        actor = self.layer_actors[file_path]
+        if actor:
+            actor.SetVisibility(is_visible)
+            self.plotter.render()
+
     def on_theme_change(self, theme):
         colors = theme.three_d_background
 
@@ -215,3 +241,9 @@ class ThreeDView(QFrame):
             self.plotter.setUpdatesEnabled(False) 
         
         super().resizeEvent(event)
+
+    def remove_layer_actor(self, file_path: str):
+        if file_path in self.layer_actors:
+            self.plotter.remove_actor(self.layer_actors[file_path])
+            del self.layer_actors[file_path]
+            self.plotter.render()

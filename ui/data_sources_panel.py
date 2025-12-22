@@ -14,6 +14,7 @@ class DataSourcesPanel(QWidget):
     remove_layer_requested = pyqtSignal(str)
     remove_stage_requested = pyqtSignal(str, int)
     style_changed_requested = pyqtSignal(str, str)
+    visibility_changed_requested = pyqtSignal(str, bool)
 
     def __init__(self, parent:Optional[QWidget] = None):
         super().__init__(parent)
@@ -32,9 +33,16 @@ class DataSourcesPanel(QWidget):
         tree.setHeaderHidden(True)
         tree.itemClicked.connect(self._on_single_clicked)
         tree.itemDoubleClicked.connect(self._on_double_clicked)
+        tree.itemChanged.connect(self._on_item_changed)
         tree.setContextMenuPolicy(Qt.CustomContextMenu)
         tree.customContextMenuRequested.connect(self._show_context_menu)
         return tree
+    
+    def _on_item_changed(self, item:QTreeWidgetItem, column:int):
+        if item.data(0, Qt.UserRole + 1) == "root":
+            file_path = item.data(0, Qt.UserRole)
+            is_visible = item.checkState(0) == Qt.Checked
+            self.visibility_changed_requested.emit(file_path, is_visible)
     
     def get_selected_file_path(self) -> Optional[str]:
         item = self.data_tree.currentItem()
@@ -122,6 +130,7 @@ class DataSourcesPanel(QWidget):
         root_item.setIcon(0, file_icon)
         root_item.setData(0, Qt.UserRole, file_path)
         root_item.setData(0, Qt.UserRole + 1, "root")
+        root_item.setCheckState(0, Qt.Checked)
         self.data_tree.addTopLevelItem(root_item)
 
         self.layer_items[file_path] = root_item
