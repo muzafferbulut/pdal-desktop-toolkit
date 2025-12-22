@@ -41,7 +41,10 @@ class ProcessController(QObject):
             return
         
         pipeline_config = context.get_full_pipeline_json()
-        pipeline_config.append(new_stage.config)
+        if isinstance(new_stage.config, list):
+            pipeline_config.extend(new_stage.config)
+        else:
+            pipeline_config.append(new_stage.config)
         self.log_message.emit("INFO", f"Filter Running: {new_stage.display_text}...")
         self._start_filter_worker(file_path, pipeline_config, new_stage)
         
@@ -199,7 +202,12 @@ class ProcessController(QObject):
 
     def _handle_stage_progress(self, index, tag, in_count, out_count):
         try:
-            stage_idx = int(tag.split("_")[-1])
+            tag_parts = tag.split("_")
+            if tag_parts[-1].isdigit():
+                stage_idx = int(tag_parts[-1])
+            else:
+                stage_idx = index
+
             stages = self.filter_worker.stage 
             
             if isinstance(stages, list) and 0 <= stage_idx < len(stages):
