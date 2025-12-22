@@ -215,8 +215,10 @@ class MainWindow(QMainWindow):
             action.triggered.connect(lambda checked=False, n=name: self._change_theme(n))
             self.themes_menu.addAction(action)
 
-    def _change_theme(self, theme_name: str):
-        self.logger.info(f"Changing theme: {theme_name}")
+    def _change_theme(self, theme_name: str, verbose:bool = True):
+        if verbose:
+            self.logger.info(f"Changing theme: {theme_name}")
+
         ThemeManager.apply_theme(theme_name)
         
         if hasattr(self, 'settings_manager'):
@@ -561,7 +563,7 @@ class MainWindow(QMainWindow):
             if action.text() == saved_theme:
                 action.setChecked(True)
         
-        self._change_theme(saved_theme)
+        self._change_theme(saved_theme, verbose=False)
         self.settings_manager.load_window_state(self)
 
     def closeEvent(self, event: QCloseEvent):
