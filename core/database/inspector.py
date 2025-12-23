@@ -1,10 +1,12 @@
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import SAWarning
 import pandas as pd
+import warnings
+
+warnings.filterwarnings("ignore", category=SAWarning, message=".*Did not recognize type 'pcpatch'.*")
 
 class DbInspector:
-    """
-    Hedef veritabanına bağlanıp şema, tablo ve view bilgilerini okuyan sınıf.
-    """
+    
     def __init__(self, conn_info: dict):
         self.conn_info = conn_info
         self.engine = self._create_engine()
@@ -27,7 +29,16 @@ class DbInspector:
     def get_columns(self, schema: str, table: str):
         return self.inspector.get_columns(table_name=table, schema=schema)
 
-    def execute_query(self, sql: str, limit=100):
+    def validate_pc_table(self, schema: str, table: str) -> bool:
+        """Tablonun id, patch, source, created_at yapısını kontrol eder."""
+        try:
+            columns = [col['name'].lower() for col in self.get_columns(schema, table)]
+            required = {'id', 'patch', 'source', 'created_at'}
+            return required.issubset(set(columns))
+        except Exception:
+            return False
+
+    def execute_query(self, sql: str):
         try:
             with self.engine.connect() as conn:
                 result = pd.read_sql_query(text(sql), conn)

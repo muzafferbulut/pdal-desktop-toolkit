@@ -3,142 +3,99 @@ import json
 import numpy as np
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
+from sqlalchemy import text, create_engine
 
 class DbWorkerSignals(QObject):
-    """
-    Worker'ların sinyallerini topladığımız sınıf.
-    """
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
     progress = pyqtSignal(int)
 
 class DbImportWorker(QThread):
-    """
-    Dosyayı veya mevcut katmanı veritabanına yazar (writers.pgpointcloud).
-    """
-    def __init__(self, source_file, conn_info, table_name, srid="4326"):
+
+    def __init__(self, source_data, conn_info, schema, table, source_name, is_array=False, srid="4326"):
         super().__init__()
-        self.source = source_file
+        self.source_data = source_data 
         self.conn_info = conn_info
-        self.table_name = table_name
+        self.schema = schema
+        self.table = table
+        self.source_name = source_name
+        self.is_array = is_array
         self.srid = srid
         self.signals = DbWorkerSignals()
 
     def run(self):
-        try:
-            self.signals.progress.emit(10)
-            
-            pipeline_json = [
-                self.source,
-                {
-                    "type": "writers.pgpointcloud",
-                    "connection": f"host={self.conn_info['host']} port={self.conn_info['port']} "
-                                  f"dbname={self.conn_info['dbname']} user={self.conn_info['user']} "
-                                  f"password={self.conn_info['password']}",
-                    "table": self.table_name,
-                    "srid": self.srid,
-                    "overwrite": False
-                }
-            ]
 
-            pipeline = pdal.Pipeline(json.dumps(pipeline_json))
-            self.signals.progress.emit(30)
+        try:
+            self.signals.progress.emit(-1)
+            
+            writer_config = {
+                "type": "writers.pgpointcloud",
+                "connection": f"host={self.conn_info['host']} port={self.conn_info['port']} "
+                              f"dbname={self.conn_info['dbname']} user={self.conn_info['user']} "
+                              f"password={self.conn_info['password']}",
+                "table": self.table, "schema": self.schema, "column": "patch",
+                "srid": self.srid, "compression": "dimensional", "overwrite": False
+            }
+            chipper_config = {"type": "filters.chipper", "capacity": 1000}
+
+            if self.is_array:
+                pipeline = pdal.Pipeline(json.dumps([chipper_config, writer_config]), [self.source_data])
+            else:
+                pipeline = pdal.Pipeline(json.dumps([self.source_data, chipper_config, writer_config]))
 
             count = pipeline.execute()
-            
+
+            # Post-process update
+            url = f"postgresql://{self.conn_info['user']}:{self.conn_info['password']}@{self.conn_info['host']}:{self.conn_info['port']}/{self.conn_info['dbname']}"
+            engine = create_engine(url)
+            with engine.connect() as conn:
+                conn.execute(text(f"UPDATE {self.schema}.{self.table} SET source = :s WHERE source IS NULL"), {"s": self.source_name})
+                conn.commit()
+
             self.signals.progress.emit(100)
-            self.signals.finished.emit(f"Successfully imported {count} points into {self.table_name}.")
+            self.signals.finished.emit(f"Imported {count} points.")
 
         except Exception as e:
+            self.signals.progress.emit(0)
             self.signals.error.emit(str(e))
 
 class DbLoadWorker(QThread):
-    """
-    Veritabanından (SQL veya Tablo) okuyup, seyreltip (decimate) Canvas için veri hazırlar.
-    """
+
     def __init__(self, conn_info, schema, table, where_clause=""):
         super().__init__()
-        self.conn_info = conn_info
-        self.schema = schema
-        self.table = table
-        self.where = where_clause
+        self.conn_info, self.schema, self.table, self.where = conn_info, schema, table, where_clause
         self.signals = DbWorkerSignals()
 
     def run(self):
         try:
-            self.signals.progress.emit(10)
-
-            pipeline_json = [
-                {
-                    "type": "readers.pgpointcloud",
-                    "connection": f"host={self.conn_info['host']} port={self.conn_info['port']} "
-                                  f"dbname={self.conn_info['dbname']} user={self.conn_info['user']} "
-                                  f"password={self.conn_info['password']}",
-                    "table": self.table,
-                    "schema": self.schema,
-                    "where": self.where
-                },
-                {
-                    "type": "filters.decimation",
-                    "step": 10
-                }
-            ]
-            
-            pipeline = pdal.Pipeline(json.dumps(pipeline_json))
-            count = pipeline.execute()
-            
-            if count == 0:
-                raise Exception("Query returned 0 points.")
-
-            self.signals.progress.emit(50)
-
-            arrays = pipeline.arrays
-            combined_data = np.concatenate(arrays)
-            df = pd.DataFrame(combined_data)
-
-            stats = {
-                "count": int(count), 
-                "schema": list(df.columns),
-                "is_decimated": True
+            self.signals.progress.emit(-1)
+            config = {
+                "type": "readers.pgpointcloud", "schema": self.schema, "table": self.table, "column": "patch", "where": self.where,
+                "connection": f"host={self.conn_info['host']} port={self.conn_info['port']} dbname={self.conn_info['dbname']} user={self.conn_info['user']} password={self.conn_info['password']}"
             }
-            
-            bounds = {
-                "minx": float(df['X'].min()), "maxx": float(df['X'].max()),
-                "miny": float(df['Y'].min()), "maxy": float(df['Y'].max()),
-                "minz": float(df['Z'].min()), "maxz": float(df['Z'].max()) if 'Z' in df else 0
-            }
-
-            result_payload = {
-                "source_type": "database",
-                "conn": self.conn_info,
-                "table_info": f"{self.schema}.{self.table}",
-                "query_filter": self.where,
-                "data": df,
-                "bounds": bounds,
-                "stats": stats
-            }
+            pipeline = pdal.Pipeline(json.dumps([config, {"type": "filters.decimation", "step": 10}]))
+            pipeline.execute()
+            df = pd.DataFrame(np.concatenate(pipeline.arrays))
             
             self.signals.progress.emit(100)
-            self.signals.finished.emit(result_payload)
+            self.signals.finished.emit({"data": df, "metadata": pipeline.metadata, "bounds": {"minx": float(df['X'].min()), "maxx": float(df['X'].max()), "miny": float(df['Y'].min()), "maxy": float(df['Y'].max())}, "conn": self.conn_info, "table_info": f"{self.schema}.{self.table}", "query_filter": self.where})
 
         except Exception as e:
+            self.signals.progress.emit(0)
             self.signals.error.emit(str(e))
 
 class DbQueryWorker(QThread):
-    """
-    SQL Penceresindeki metin tabanlı sorgular için (Pandas DataFrame döner).
-    """
     finished_success = pyqtSignal(object)
     finished_error = pyqtSignal(str)
+    finished = pyqtSignal()
 
     def __init__(self, inspector, sql):
         super().__init__()
-        self.inspector = inspector
-        self.sql = sql
-
+        self.inspector, self.sql = inspector, sql
+        
     def run(self):
-        result = self.inspector.execute_query(self.sql)
-        if result["status"]:
-            self.finished_success.emit(result["data"])
-        else:
-            self.finished_error.emit(result["error"])
+        try:
+            res = self.inspector.execute_query(self.sql)
+            if res["status"]: self.finished_success.emit(res["data"])
+            else: self.finished_error.emit(res["error"])
+        finally: self.finished.emit()
