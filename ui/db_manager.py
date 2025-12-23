@@ -54,7 +54,7 @@ class DbManagerDialog(QDialog):
         tb.addAction(QAction(QIcon("ui/resources/icons/refresh.png"), "Refresh", self, triggered=self._load_connections))
         tb.addSeparator()
         tb.addAction(QAction(QIcon("ui/resources/icons/open.png"), "Import File", self, triggered=self._action_import_file))
-        tb.addAction(QAction(QIcon("ui/resources/icons/database.png"), "Export Layer", self, triggered=self._action_export_active_layer))
+        tb.addAction(QAction(QIcon("ui/resources/icons/send_to.png"), "Export Layer", self, triggered=self._action_export_active_layer))
 
         sp = QSplitter(Qt.Horizontal); ml.addWidget(sp)
         self.tree = QTreeWidget(); self.tree.setHeaderLabel("Browser"); self.tree.itemExpanded.connect(self._on_item_expanded); self.tree.itemClicked.connect(self._on_item_clicked)
