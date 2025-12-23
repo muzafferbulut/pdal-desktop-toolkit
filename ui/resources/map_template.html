@@ -2,29 +2,15 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-      }
-      #mapid {
-        height: 100vh;
-        width: 100%;
-      }
-
-      .leaflet-control-layers {
-        background: rgba(255, 255, 255, 0.85);
-        border-radius: 8px;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-        font-family: "Segoe UI", sans-serif;
-        font-size: 13px;
+      html, body { margin: 0; padding: 0; height: 100%; }
+      #mapid { height: 100vh; width: 100%; }
+      .leaflet-control-layers { 
+        background: rgba(255, 255, 255, 0.85); 
+        border-radius: 8px; 
+        font-family: "Segoe UI", sans-serif; 
       }
     </style>
   </head>
@@ -32,101 +18,55 @@
     <div id="mapid"></div>
     <script>
       var map = L.map("mapid").setView([39, 35], 5);
-
-      var osm = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          maxZoom: 19,
-        }
-      );
-
-      var esri = L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        {
-          maxZoom: 19,
-        }
-      );
-
-      var hybrid = L.layerGroup([
-        esri,
-        L.tileLayer(
-          "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-        ),
-      ]);
-
-      osm.addTo(map);
-
-      var baseMaps = {
-        OpenStreetMap: osm,
-        "Esri Satellite": esri,
-        Hybrid: hybrid,
-      };
-
-      L.control.layers(baseMaps, null, { collapsed: true }).addTo(map);
-
+      var currentLayer = null;
       var bboxes = {};
 
-      window.drawBBoxJS = function (layerId, minx, miny, maxx, maxy) {
-        if (bboxes[layerId]) {
-          map.removeLayer(bboxes[layerId]);
+      // Varsayılan Katman (OSM)
+      currentLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+
+      // Harita Stilini Değiştirme (Python'dan tetiklenir)
+      window.setMapTileLayer = function (style) {
+        if (currentLayer) map.removeLayer(currentLayer);
+        
+        var url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+        if (style === "carto_dark") {
+          url = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+        } else if (style === "esri_satellite") {
+          url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
         }
 
-        var bounds = L.latLngBounds([
-          [miny, minx],
-          [maxy, maxx],
-        ]);
+        currentLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(map);
+      };
 
+      // BBox Çizme (Hata almaması için parametreler güvenli geliyor)
+      window.drawBBoxJS = function (layerId, minx, miny, maxx, maxy) {
+        if (bboxes[layerId]) map.removeLayer(bboxes[layerId]);
+
+        var bounds = L.latLngBounds([[miny, minx], [maxy, maxx]]);
         var rect = L.rectangle(bounds, {
           color: "#ff7800",
           weight: 2,
           fillOpacity: 0.1,
-          dashArray: "5, 5",
+          dashArray: "5, 5"
         }).addTo(map);
 
         bboxes[layerId] = rect;
-
         map.fitBounds(bounds, { padding: [20, 20] });
       };
 
+      // Temizleme
       window.clearBBoxJS = function (layerId) {
         if (layerId) {
-          if (bboxes[layerId]) {
-            map.removeLayer(bboxes[layerId]);
-            delete bboxes[layerId];
-          }
+          if (bboxes[layerId]) { map.removeLayer(bboxes[layerId]); delete bboxes[layerId]; }
         } else {
-          for (var id in bboxes) {
-            map.removeLayer(bboxes[id]);
-          }
+          for (var id in bboxes) { map.removeLayer(bboxes[id]); }
           bboxes = {};
         }
       };
 
       window.zoomOnlyJS = function (minx, miny, maxx, maxy) {
-        var bounds = L.latLngBounds([
-          [miny, minx],
-          [maxy, maxx],
-        ]);
+        var bounds = L.latLngBounds([[miny, minx], [maxy, maxx]]);
         map.fitBounds(bounds, { padding: [20, 20] });
-      };
-
-      var currentLayer = null;
-
-      window.setMapTileLayer = function (style) {
-        if (typeof map === "undefined") return;
-        if (currentLayer) {
-          map.removeLayer(currentLayer);
-        }
-
-        var url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-        if (style === "carto_dark") {
-          url = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-        }
-
-        currentLayer = L.tileLayer(url, {
-          maxZoom: 19,
-        }).addTo(map);
       };
     </script>
   </body>
