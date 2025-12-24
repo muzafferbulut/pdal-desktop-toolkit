@@ -120,11 +120,11 @@ class DataSourcesPanel(QWidget):
             self.file_double_clicked.emit(file_path, file_name)
 
     def add_file(self, file_path:str, file_name:str):
-        
         if file_path in self.layer_items:
             return
                 
-        file_icon = QIcon("ui/resources/icons/file.png")
+        icon_path = "ui/resources/icons/database.png" if file_path.startswith("DB://") else "ui/resources/icons/file.png"
+        file_icon = QIcon(icon_path)
 
         root_item = QTreeWidgetItem(self.data_tree, [file_name])
         root_item.setIcon(0, file_icon)
@@ -134,7 +134,6 @@ class DataSourcesPanel(QWidget):
         self.data_tree.addTopLevelItem(root_item)
 
         self.layer_items[file_path] = root_item
-
         self.data_tree.setCurrentItem(root_item)
         self.file_single_clicked.emit(file_path, file_name)
 

@@ -6,6 +6,7 @@ from core.enums import Dimensions
 from PyQt5.QtCore import QUrl
 import pyvista as pv
 import numpy as np
+import json
 import os
 
 class GISMapView(QWebEngineView):
@@ -40,27 +41,15 @@ class GISMapView(QWebEngineView):
         self.page().runJavaScript(js_command)
 
     def draw_bbox(self, layer_id: str, bounds: dict):
-        if not self.map_is_loaded:
-            return
-        
-        minx, miny = bounds.get('minx'), bounds.get('miny')
-        maxx, maxy = bounds.get('maxx'), bounds.get('maxy')
-
-        if None in [minx, miny, maxx, maxy]:
-            return
-
-        js_command = f"window.drawBBoxJS('{layer_id}', {minx}, {miny}, {maxx}, {maxy});"
+        if not self.map_is_loaded: return
+        minx, miny, maxx, maxy = bounds.get('minx'), bounds.get('miny'), bounds.get('maxx'), bounds.get('maxy')
+        if None in [minx, miny, maxx, maxy]: return
+        js_command = f"window.drawBBoxJS({json.dumps(layer_id)}, {minx}, {miny}, {maxx}, {maxy});"
         self.page().runJavaScript(js_command)
 
     def clear_bbox(self, layer_id: str = None):
-        """
-        layer_id verilirse sadece o katmanı, 
-        verilmezse (None) tüm haritayı temizler.
-        """
-        if not self.map_is_loaded:
-            return
-            
-        js_id = f"'{layer_id}'" if layer_id else "null"
+        if not self.map_is_loaded: return
+        js_id = json.dumps(layer_id) if layer_id else "null"
         js_command = f"window.clearBBoxJS({js_id});"
         self.page().runJavaScript(js_command)
 

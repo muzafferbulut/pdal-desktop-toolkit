@@ -30,10 +30,9 @@ class DbInspector:
         return self.inspector.get_columns(table_name=table, schema=schema)
 
     def validate_pc_table(self, schema: str, table: str) -> bool:
-        """Tablonun id, patch, source, created_at yapısını kontrol eder."""
         try:
             columns = [col['name'].lower() for col in self.get_columns(schema, table)]
-            required = {'id', 'patch', 'source', 'created_at'}
+            required = {'id', 'patch', 'pcid', 'source', 'created_at'}
             return required.issubset(set(columns))
         except Exception:
             return False
