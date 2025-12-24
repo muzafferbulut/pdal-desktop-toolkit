@@ -45,3 +45,31 @@ class DbInspector:
                 return {"status": True, "data": result}
         except Exception as e:
             return {"status": False, "error": str(e)}
+
+    def create_schema(self, schema_name: str):
+        sql = f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text(sql))
+                conn.commit()
+                return {"status": True}
+        except Exception as e:
+            return {"status": False, "error": str(e)}
+
+    def create_pc_table(self, schema_name: str, table_name: str, pcid: int = 1):
+        sql = f"""
+        CREATE TABLE "{schema_name}"."{table_name}" (
+            id SERIAL PRIMARY KEY,
+            pcid INTEGER DEFAULT {pcid},
+            patch PCPATCH,
+            source TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text(sql))
+                conn.commit()
+                return {"status": True}
+        except Exception as e:
+            return {"status": False, "error": str(e)}

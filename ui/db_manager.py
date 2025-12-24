@@ -167,3 +167,43 @@ class DbManagerDialog(QDialog):
     def _action_export_active_layer(self):
         if self.current_table and self.active_inspector.validate_pc_table(self.current_schema, self.current_table):
             self.data_controller.export_active_layer_to_db(self.active_inspector.conn_info, self.current_schema, self.current_table)
+
+    def _show_context_menu(self, pos):
+        item = self.tree.itemAt(pos)
+        if not item: return
+        
+        d = item.data(0, Qt.UserRole)
+        menu = QMenu()
+
+        if d["type"] == "connection":
+            act_new = menu.addAction(QIcon("ui/resources/icons/add.png"), "New Schema")
+            menu.addSeparator()
+            act_del = menu.addAction(QIcon("ui/resources/icons/remove.png"), "Delete Connection")
+            
+            res = menu.exec_(self.tree.mapToGlobal(pos))
+            if res == act_del:
+                if self.repository.delete_connection(d["data"]["id"]): self._load_connections()
+            elif res == act_new:
+                self._create_new_schema(d["data"])
+
+        elif d["type"] == "schema":
+            act_table = menu.addAction(QIcon("ui/resources/icons/table.png"), "New Table")
+            res = menu.exec_(self.tree.mapToGlobal(pos))
+            if res == act_table:
+                self._create_new_table(d["conn"], d["name"])
+
+    def _create_new_schema(self, conn_info):
+        name, ok = QInputDialog.getText(self, "New Schema", "Enter schema name:")
+        if ok and name.strip():
+            if DbInspector(conn_info).create_schema(name.strip())["status"]:
+                self._load_connections()
+            else:
+                QMessageBox.critical(self, "Error", "Could not create schema.")
+
+    def _create_new_table(self, conn_info, schema_name):
+        name, ok = QInputDialog.getText(self, "New Table", f"Create table in {schema_name}:")
+        if ok and name.strip():
+            if DbInspector(conn_info).create_pc_table(schema_name, name.strip(), pcid=1)["status"]:
+                self._load_connections()
+            else:
+                QMessageBox.critical(self, "Error", "Could not create table. Make sure pgPointcloud is enabled.")
