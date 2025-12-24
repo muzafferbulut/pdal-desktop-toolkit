@@ -152,8 +152,8 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_db_manager)
 
     def _open_db_manager(self):
-        dlg = DbManagerDialog(self.controller.data_controller, self) 
-        dlg.exec_()
+        self.db_manager_dlg = DbManagerDialog(self.controller.data_controller, self)
+        self.db_manager_dlg.show()
 
     def _get_active_layer_path(self) -> Optional[str]:
         path = self.data_sources_panel.get_selected_file_path()

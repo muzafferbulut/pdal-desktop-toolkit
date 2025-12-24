@@ -3,7 +3,12 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    
     <style>
       html, body { margin: 0; padding: 0; height: 100%; }
       #mapid { height: 100vh; width: 100%; }
@@ -20,11 +25,30 @@
       var map = L.map("mapid").setView([39, 35], 5);
       var currentLayer = null;
       var bboxes = {};
+      var drawnItems = new L.FeatureGroup().addTo(map);
 
-      // Varsayılan Katman (OSM)
       currentLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
 
-      // Harita Stilini Değiştirme (Python'dan tetiklenir)
+      new QWebChannel(qt.webChannelTransport, function(channel) {
+          window.pyBridge = channel.objects.handler;
+      });
+
+      window.startDrawingJS = function() {
+          new L.Draw.Rectangle(map).enable();
+      };
+
+      map.on(L.Draw.Event.CREATED, function (e) {
+          var layer = e.layer;
+          drawnItems.addLayer(layer);
+          var b = layer.getBounds();
+          
+          if (window.pyBridge) {
+              window.pyBridge.areaSelected(
+                  b.getWest(), b.getSouth(), b.getEast(), b.getNorth()
+              );
+          }
+      });
+
       window.setMapTileLayer = function (style) {
         if (currentLayer) map.removeLayer(currentLayer);
         
@@ -38,7 +62,6 @@
         currentLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(map);
       };
 
-      // BBox Çizme (Hata almaması için parametreler güvenli geliyor)
       window.drawBBoxJS = function (layerId, minx, miny, maxx, maxy) {
         if (bboxes[layerId]) map.removeLayer(bboxes[layerId]);
 
@@ -54,7 +77,6 @@
         map.fitBounds(bounds, { padding: [20, 20] });
       };
 
-      // Temizleme
       window.clearBBoxJS = function (layerId) {
         if (layerId) {
           if (bboxes[layerId]) { map.removeLayer(bboxes[layerId]); delete bboxes[layerId]; }

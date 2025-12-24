@@ -36,7 +36,7 @@ class DbImportWorker(QThread):
             engine = create_engine(url)
             with engine.connect() as conn:
                 conn.execute(text(f'UPDATE "{self.schema}"."{self.table}" SET source = :s WHERE source IS NULL'), {"s": self.source_name})
-                res = conn.execute(text(f'SELECT pcid FROM "{self.schema}"."{self.table}" WHERE pcid IS NOT NULL LIMIT 1')).fetchone()
+                res = conn.execute(text(f'SELECT pcid FROM "{self.schema}"."{self.table}" WHERE pcid IS NOT NULL WHERE ID=1')).fetchone()
                 if res:
                     actual_pcid = res[0]
                     conn.execute(text(f'ALTER TABLE "{self.schema}"."{self.table}" ALTER COLUMN patch TYPE public.pcpatch({actual_pcid})'))

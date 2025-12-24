@@ -1,18 +1,32 @@
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWebChannel import QWebChannel  # Yeni: Harita-Python köprüsü için
+from PyQt5.QtCore import pyqtSlot, QObject, pyqtSignal, QUrl  # Yeni: Sinyal ve Slotlar için
 from PyQt5.QtWidgets import QVBoxLayout, QFrame
 from core.render_utils import RenderUtils
 from pyvistaqt import QtInteractor
 from core.enums import Dimensions
-from PyQt5.QtCore import QUrl
 import pyvista as pv
 import numpy as np
 import json
 import os
 
+class MapBridge(QObject):
+    area_drawn = pyqtSignal(float, float, float, float)
+
+    @pyqtSlot(float, float, float, float)
+    def areaSelected(self, minx, miny, maxx, maxy):
+        self.area_drawn.emit(minx, miny, maxx, maxy)
+
 class GISMapView(QWebEngineView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        
+        self.bridge = MapBridge()
+        self.channel = QWebChannel()
+        self.channel.registerObject('handler', self.bridge)
+        self.page().setWebChannel(self.channel)
+        
         current_dir = os.path.dirname(os.path.abspath(__file__))
         map_file_path = os.path.join(current_dir, "resources" , "map_template.html")
         map_url = QUrl.fromLocalFile(map_file_path)
@@ -44,6 +58,7 @@ class GISMapView(QWebEngineView):
         if not self.map_is_loaded: return
         minx, miny, maxx, maxy = bounds.get('minx'), bounds.get('miny'), bounds.get('maxx'), bounds.get('maxy')
         if None in [minx, miny, maxx, maxy]: return
+        
         js_command = f"window.drawBBoxJS({json.dumps(layer_id)}, {minx}, {miny}, {maxx}, {maxy});"
         self.page().runJavaScript(js_command)
 
@@ -79,10 +94,6 @@ class ThreeDView(QFrame):
         self.plotter.show_axes()
 
     def render_point_cloud(self, file_path:str, data_dict: dict, color_by: str = "Elevation", reset_view: bool = True):
-        """
-        data_dict: {x, y, z, intensity, red, green...}
-        color_by: 'Elevation', 'Intensity', 'RGB', 'Classification'
-        """
         x = data_dict.get(Dimensions.X)
         y = data_dict.get(Dimensions.Y)
         z = data_dict.get(Dimensions.Z)
