@@ -152,7 +152,10 @@ class MainWindow(QMainWindow):
         self.file_toolbar.addAction(self.action_db_manager)
 
     def _open_db_manager(self):
-        self.db_manager_dlg = DbManagerDialog(self.controller.data_controller, self)
+        if not hasattr(self, 'db_manager_dlg') or self.db_manager_dlg is None:
+            self.db_manager_dlg = DbManagerDialog(self.controller.data_controller, self)
+            self.data_sources_panel.file_single_clicked.connect(self.db_manager_dlg.refresh_layer_name)
+        self.db_manager_dlg.refresh_layer_name() 
         self.db_manager_dlg.show()
 
     def _get_active_layer_path(self) -> Optional[str]:

@@ -274,3 +274,8 @@ class DbManagerDialog(QDialog):
     def _action_export_active_layer(self):
         if self.current_table and self.active_inspector.validate_pc_table(self.current_schema, self.current_table):
             self.data_controller.export_active_layer_to_db(self.active_inspector.conn_info, self.current_schema, self.current_table)
+
+    def refresh_layer_name(self):
+        active_path = self.data_controller.active_layer_path
+        layer_name = os.path.basename(active_path) if active_path else "No Layer"
+        self.action_export.setText(f" Send to DB '{layer_name}'")

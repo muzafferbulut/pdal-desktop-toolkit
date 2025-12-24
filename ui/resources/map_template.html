@@ -10,24 +10,70 @@
     <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     
     <style>
-      html, body { margin: 0; padding: 0; height: 100%; }
-      #mapid { height: 100vh; width: 100%; }
-      .leaflet-control-layers { 
-        background: rgba(255, 255, 255, 0.85); 
-        border-radius: 8px; 
-        font-family: "Segoe UI", sans-serif; 
-      }
-    </style>
+          html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+          #mapid { height: 100vh; width: 100%; }
+          .leaflet-control-layers {
+            background: rgba(255, 255, 255, 0.8) !important;
+            backdrop-filter: blur(10px);
+            border: none !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
+            font-family: 'Segoe UI', sans-serif;
+            padding: 5px !important;
+            transition: all 0.3s ease;
+          }
+          .leaflet-control-layers-expanded {
+            padding: 12px !important;
+            color: #333;
+          }
+          .leaflet-control-layers-base label {
+            padding: 6px 8px;
+            margin: 2px 0;
+            border-radius: 6px;
+            transition: background 0.2s;
+            cursor: pointer;
+            font-size: 13px;
+            display: block;
+          }
+          .leaflet-control-layers-base label:hover {
+            background: rgba(0, 0, 0, 0.05);
+          }
+          .leaflet-control-layers-base input {
+            margin-right: 10px;
+          }
+        </style>
   </head>
   <body>
     <div id="mapid"></div>
     <script>
-      var map = L.map("mapid").setView([39, 35], 5);
-      var currentLayer = null;
+      var osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19, attribution: '© OSM'
+      });
+
+      var dark = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        maxZoom: 19, attribution: '© CARTO'
+      });
+
+      var satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19, attribution: '© Esri'
+      });
+
+      var map = L.map("mapid", {
+        center: [39, 35],
+        zoom: 5,
+        layers: [osm]
+      });
+
+      var currentLayer = osm;
       var bboxes = {};
       var drawnItems = new L.FeatureGroup().addTo(map);
 
-      currentLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+      var baseMaps = {
+        "OpenStreetMap": osm,
+        "Carto Dark": dark,
+        "Esri Satellite": satellite
+      };
+      L.control.layers(baseMaps).addTo(map);
 
       new QWebChannel(qt.webChannelTransport, function(channel) {
           window.pyBridge = channel.objects.handler;
@@ -39,6 +85,7 @@
 
       map.on(L.Draw.Event.CREATED, function (e) {
           var layer = e.layer;
+          drawnItems.clearLayers(); 
           drawnItems.addLayer(layer);
           var b = layer.getBounds();
           
@@ -50,29 +97,19 @@
       });
 
       window.setMapTileLayer = function (style) {
-        if (currentLayer) map.removeLayer(currentLayer);
-        
-        var url = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-        if (style === "carto_dark") {
-          url = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-        } else if (style === "esri_satellite") {
-          url = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
-        }
-
-        currentLayer = L.tileLayer(url, { maxZoom: 19 }).addTo(map);
+        map.removeLayer(currentLayer);
+        if (style === "carto_dark") currentLayer = dark;
+        else if (style === "esri_satellite") currentLayer = satellite;
+        else currentLayer = osm;
+        currentLayer.addTo(map);
       };
 
       window.drawBBoxJS = function (layerId, minx, miny, maxx, maxy) {
         if (bboxes[layerId]) map.removeLayer(bboxes[layerId]);
-
         var bounds = L.latLngBounds([[miny, minx], [maxy, maxx]]);
         var rect = L.rectangle(bounds, {
-          color: "#ff7800",
-          weight: 2,
-          fillOpacity: 0.1,
-          dashArray: "5, 5"
+          color: "#ff7800", weight: 2, fillOpacity: 0.1, dashArray: "5, 5"
         }).addTo(map);
-
         bboxes[layerId] = rect;
         map.fitBounds(bounds, { padding: [20, 20] });
       };
