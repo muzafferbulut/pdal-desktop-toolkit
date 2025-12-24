@@ -10,6 +10,7 @@ from core.database.inspector import DbInspector
 from core.database.repository import Repository
 from core.database.workers import DbQueryWorker 
 import re
+import os
 
 class SqlHighlighter(QSyntaxHighlighter):
     """SQL sözdizimini renklendiren yardımcı sınıf."""
@@ -51,6 +52,7 @@ class SqlHighlighter(QSyntaxHighlighter):
                 self.setFormat(match.start(), match.end() - match.start(), format)
 
 class NewConnectionDialog(QDialog):
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("New PostGIS Connection")
@@ -92,11 +94,17 @@ class DbManagerDialog(QDialog):
         self.setWindowTitle("Database Manager"); self.resize(1100, 700); self._setup_ui(); self._load_connections()
 
     def _setup_ui(self):
-        ml = QVBoxLayout(self); tb = QToolBar(); tb.setMovable(False); ml.addWidget(tb)
+        ml = QVBoxLayout(self); tb = QToolBar()
+        tb.setMovable(False); ml.addWidget(tb)
+        tb.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
         tb.addAction(QAction(QIcon("ui/resources/icons/add_connection.png"), "New", self, triggered=self._open_new_conn_dialog))
         tb.addAction(QAction(QIcon("ui/resources/icons/refresh.png"), "Refresh", self, triggered=self._load_connections))
         tb.addSeparator()
-        tb.addAction(QAction(QIcon("ui/resources/icons/send_to.png"), "Export Layer", self, triggered=self._action_export_active_layer))
+        active_path = self.data_controller.active_layer_path
+        layer_name = os.path.basename(active_path) if active_path else "No Layer Selected"
+        self.action_export = QAction(QIcon("ui/resources/icons/send_to.png"), f" Send to DB '{layer_name}'", self)
+        self.action_export.triggered.connect(self._action_export_active_layer)
+        tb.addAction(self.action_export)
 
         sp = QSplitter(Qt.Horizontal); ml.addWidget(sp)
         
