@@ -69,7 +69,6 @@ class DbInspector:
         CREATE OR REPLACE FUNCTION "{schema_name}"."fn_fill_pcid_{table_name}"()
         RETURNS TRIGGER AS $$
         BEGIN
-            -- patch verisinin içindeki gerçek ID'yi (örneğin 3) otomatik kolona yazar
             NEW.pcid := public.pc_pcid(NEW.patch); 
             RETURN NEW;
         END;
