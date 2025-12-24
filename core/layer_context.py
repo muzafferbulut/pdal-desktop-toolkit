@@ -37,6 +37,7 @@ class LayerContext:
         self.stages: List[PipelineStage] = []
         self.active_style: str = "Elevation"
         self.current_render_data: Optional[Dict] = None
+        self.is_visible: bool = True
 
     def add_stage(self, stage:PipelineStage):
         self.stages.append(stage)

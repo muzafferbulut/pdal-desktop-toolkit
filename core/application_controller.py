@@ -136,15 +136,21 @@ class ApplicationController(QObject):
         context = self.data_controller.get_layer(file_path)
         if not context: return
 
+        is_visible = getattr(context, 'is_visible', True)
+
         bounds = context.bounds
         if bounds and bounds.get("status"):
-            self.draw_bbox_signal.emit(bounds)
-            self.logger.info(f"'{file_name}' bounds drawn on map.")
+            if is_visible:
+                self.draw_bbox_signal.emit(bounds)
+            else:
+                self.zoom_map_only_signal.emit(bounds)
 
         if context.current_render_data is not None:
-            current_style = getattr(context, "active_style", Dimensions.Z)
-            self.render_data_signal.emit(file_path, current_style, True) 
-            self.logger.info(f"'{file_name}' rendered in 3D view.")
+            if is_visible:
+                current_style = getattr(context, "active_style", Dimensions.Z)
+                self.render_data_signal.emit(file_path, current_style, True)
+            else:
+                self.focus_3d_mesh_signal.emit(file_path)
 
     def handle_style_change(self, file_path: str, style_name: str):
         context = self.data_controller.get_layer(file_path)
