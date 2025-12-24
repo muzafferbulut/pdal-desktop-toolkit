@@ -56,19 +56,37 @@ class DbInspector:
         except Exception as e:
             return {"status": False, "error": str(e)}
 
-    def create_pc_table(self, schema_name: str, table_name: str, pcid: int = 1):
-        sql = f"""
+    def create_pc_table(self, schema_name: str, table_name: str):
+        create_sql = f"""
         CREATE TABLE "{schema_name}"."{table_name}" (
             id SERIAL PRIMARY KEY,
-            pcid INTEGER DEFAULT {pcid},
-            patch PCPATCH,
+            pcid INTEGER, 
+            patch public.PCPATCH,
             source TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
+        trigger_func = f"""
+        CREATE OR REPLACE FUNCTION "{schema_name}"."fn_fill_pcid_{table_name}"()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            -- patch verisinin içindeki gerçek ID'yi (örneğin 3) otomatik kolona yazar
+            NEW.pcid := public.pc_pcid(NEW.patch); 
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        """
+        trigger_bind = f"""
+        CREATE TRIGGER "trg_fill_pcid_{table_name}"
+        BEFORE INSERT ON "{schema_name}"."{table_name}"
+        FOR EACH ROW EXECUTE FUNCTION "{schema_name}"."fn_fill_pcid_{table_name}"();
+        """
+
         try:
             with self.engine.connect() as conn:
-                conn.execute(text(sql))
+                conn.execute(text(create_sql))
+                conn.execute(text(trigger_func))
+                conn.execute(text(trigger_bind))
                 conn.commit()
                 return {"status": True}
         except Exception as e:

@@ -24,7 +24,6 @@ class DbImportWorker(QThread):
         self.signals = DbWorkerSignals()
 
     def run(self):
-
         try:
             self.signals.progress.emit(-1)
             
@@ -36,8 +35,8 @@ class DbImportWorker(QThread):
                 "table": self.table, "schema": self.schema, "column": "patch",
                 "srid": self.srid, "compression": "dimensional", "overwrite": False
             }
-            chipper_config = {"type": "filters.chipper", "capacity": 1000}
 
+            chipper_config = {"type": "filters.chipper", "capacity": 1000}
             if self.is_array:
                 pipeline = pdal.Pipeline(json.dumps([chipper_config, writer_config]), [self.source_data])
             else:
@@ -45,18 +44,16 @@ class DbImportWorker(QThread):
 
             count = pipeline.execute()
 
-            # Post-process update
             url = f"postgresql://{self.conn_info['user']}:{self.conn_info['password']}@{self.conn_info['host']}:{self.conn_info['port']}/{self.conn_info['dbname']}"
             engine = create_engine(url)
             with engine.connect() as conn:
-                conn.execute(text(f"UPDATE {self.schema}.{self.table} SET source = :s WHERE source IS NULL"), {"s": self.source_name})
+                conn.execute(text(f'UPDATE "{self.schema}"."{self.table}" SET source = :s WHERE source IS NULL'), {"s": self.source_name})
                 conn.commit()
 
             self.signals.progress.emit(100)
-            self.signals.finished.emit(f"Imported {count} points.")
-
+            self.signals.finished.emit(f"Başarıyla {count} nokta işlendi.")
+            
         except Exception as e:
-            self.signals.progress.emit(0)
             self.signals.error.emit(str(e))
 
 class DbLoadWorker(QThread):

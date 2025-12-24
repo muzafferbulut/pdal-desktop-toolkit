@@ -53,11 +53,11 @@ class DbManagerDialog(QDialog):
         tb.addAction(QAction(QIcon("ui/resources/icons/add_connection.png"), "New", self, triggered=self._open_new_conn_dialog))
         tb.addAction(QAction(QIcon("ui/resources/icons/refresh.png"), "Refresh", self, triggered=self._load_connections))
         tb.addSeparator()
-        tb.addAction(QAction(QIcon("ui/resources/icons/open.png"), "Import File", self, triggered=self._action_import_file))
         tb.addAction(QAction(QIcon("ui/resources/icons/send_to.png"), "Export Layer", self, triggered=self._action_export_active_layer))
 
         sp = QSplitter(Qt.Horizontal); ml.addWidget(sp)
-        self.tree = QTreeWidget(); self.tree.setHeaderLabel("Browser"); self.tree.itemExpanded.connect(self._on_item_expanded); self.tree.itemClicked.connect(self._on_item_clicked)
+        self.tree = QTreeWidget(); self.tree.setHeaderLabel("Browser")
+        self.tree.itemExpanded.connect(self._on_item_expanded); self.tree.itemClicked.connect(self._on_item_clicked)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu); self.tree.customContextMenuRequested.connect(self._show_context_menu)
         sp.addWidget(self.tree)
 
@@ -66,8 +66,18 @@ class DbManagerDialog(QDialog):
         self.sql_editor = QPlainTextEdit(); self.sql_editor.setMaximumHeight(200); rl.addWidget(self.sql_editor)
         
         bl = QHBoxLayout(); rl.addLayout(bl)
-        btn_r = QPushButton("Execute SQL"); btn_r.clicked.connect(self._run_sql_query); bl.addWidget(btn_r); bl.addStretch()
-        self.btn_load = QPushButton("Load to Canvas"); self.btn_load.setEnabled(False); self.btn_load.clicked.connect(self._on_load_to_canvas); bl.addWidget(self.btn_load)
+        btn_r = QPushButton(" Execute SQL"); btn_r.setIcon(QIcon("ui/resources/icons/run.png"))
+        btn_r.clicked.connect(self._run_sql_query); bl.addWidget(btn_r); bl.addStretch()
+        
+        self.btn_import = QPushButton(" Import Point Cloud")
+        self.btn_import.setIcon(QIcon("ui/resources/icons/open.png"))
+        self.btn_import.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; padding: 5px;")
+        self.btn_import.setEnabled(False)
+        self.btn_import.clicked.connect(self._action_import_file)
+        bl.addWidget(self.btn_import)
+
+        self.btn_load = QPushButton(" Add to Canvas"); self.btn_load.setIcon(QIcon("ui/resources/icons/add_to_canvas.png"))
+        self.btn_load.setEnabled(False); self.btn_load.clicked.connect(self._on_load_to_canvas); bl.addWidget(self.btn_load)
         
         self.result_view = QTableView(); rl.addWidget(self.result_view); sp.setStretchFactor(1, 3)
 
@@ -139,7 +149,8 @@ class DbManagerDialog(QDialog):
         if d.get("type") in ["table", "view"]:
             self.current_schema, self.current_table, self.active_inspector = d["schema"], d["name"], DbInspector(d["conn"])
             self.lbl_table.setText(f"Aktif Obje: {self.current_schema}.{self.current_table}")
-            self.sql_editor.setPlainText(f"SELECT * FROM {self.current_schema}.{self.current_table} LIMIT 100")
+            self.sql_editor.setPlainText(f'SELECT * FROM "{self.current_schema}"."{self.current_table}" LIMIT 10')
+            self.btn_import.setEnabled(True) 
             self.btn_load.setEnabled(False)
 
     def _run_sql_query(self):
@@ -203,7 +214,8 @@ class DbManagerDialog(QDialog):
     def _create_new_table(self, conn_info, schema_name):
         name, ok = QInputDialog.getText(self, "New Table", f"Create table in {schema_name}:")
         if ok and name.strip():
-            if DbInspector(conn_info).create_pc_table(schema_name, name.strip(), pcid=1)["status"]:
+            res = DbInspector(conn_info).create_pc_table(schema_name, name.strip())
+            if res["status"]:
                 self._load_connections()
             else:
-                QMessageBox.critical(self, "Error", "Could not create table. Make sure pgPointcloud is enabled.")
+                QMessageBox.critical(self, "Error", f"Could not create table: {res.get('error')}")
