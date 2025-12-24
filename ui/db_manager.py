@@ -88,25 +88,57 @@ class DbManagerDialog(QDialog):
         if dlg.exec_() and self.repository.save_connection(dlg.conn_data): self._load_connections()
 
     def _on_item_expanded(self, i):
-        if i.childCount() == 1 and i.child(0).text(0) == "": i.removeChild(i.child(0))
-        else: return
+        if i.childCount() == 1 and i.child(0).text(0) == "": 
+            i.removeChild(i.child(0))
+        else: 
+            return
+            
         d = i.data(0, Qt.UserRole)
+    
+        EXCLUDED_OBJECTS = {
+            "spatial_ref_sys", "geometry_columns", "geography_columns", 
+            "raster_columns", "raster_overviews", "pointcloud_formats",
+            "topology", "layer", "pointcloud_columns"
+        }
+
         try:
             insp = DbInspector(d["data"] if d["type"] == "connection" else d["conn"])
             if d["type"] == "connection":
                 for s in insp.get_schemas():
-                    if s in ["information_schema", "pg_catalog"]: continue
-                    c = QTreeWidgetItem(i, [s]); c.setData(0, Qt.UserRole, {"type": "schema", "name": s, "conn": d["data"]}); c.setIcon(0, QIcon("ui/resources/icons/schema.png")); QTreeWidgetItem(c)
+
+                    if s.startswith("pg_") or s in ["information_schema", "topology", "tiger"]: 
+                        continue
+                    
+                    c = QTreeWidgetItem(i, [s])
+                    c.setData(0, Qt.UserRole, {"type": "schema", "name": s, "conn": d["data"]})
+                    c.setIcon(0, QIcon("ui/resources/icons/schema.png"))
+                    QTreeWidgetItem(c)
+    
             elif d["type"] == "schema":
                 for t in insp.get_tables(d["name"]):
-                    c = QTreeWidgetItem(i, [t]); c.setData(0, Qt.UserRole, {"type": "table", "schema": d["name"], "name": t, "conn": d["conn"]}); c.setIcon(0, QIcon("ui/resources/icons/table.png"))
-        except Exception as e: QMessageBox.critical(self, "Err", str(e))
+                    if t.lower() in EXCLUDED_OBJECTS: 
+                        continue
+                    
+                    c = QTreeWidgetItem(i, [t])
+                    c.setData(0, Qt.UserRole, {"type": "table", "schema": d["name"], "name": t, "conn": d["conn"]})
+                    c.setIcon(0, QIcon("ui/resources/icons/table.png"))
+                
+                for v in insp.get_views(d["name"]):
+                    if v.lower() in EXCLUDED_OBJECTS: 
+                        continue
+                    
+                    c = QTreeWidgetItem(i, [v])
+                    c.setData(0, Qt.UserRole, {"type": "view", "schema": d["name"], "name": v, "conn": d["conn"]})
+                    c.setIcon(0, QIcon("ui/resources/icons/view.png"))
+
+        except Exception as e: 
+            QMessageBox.critical(self, "Hata", f"Veritabanı objeleri yüklenemedi: {str(e)}")
 
     def _on_item_clicked(self, i, c):
         d = i.data(0, Qt.UserRole)
-        if d.get("type") == "table":
+        if d.get("type") in ["table", "view"]:
             self.current_schema, self.current_table, self.active_inspector = d["schema"], d["name"], DbInspector(d["conn"])
-            self.lbl_table.setText(f"Active Table: {self.current_schema}.{self.current_table}")
+            self.lbl_table.setText(f"Aktif Obje: {self.current_schema}.{self.current_table}")
             self.sql_editor.setPlainText(f"SELECT * FROM {self.current_schema}.{self.current_table} LIMIT 100")
             self.btn_load.setEnabled(False)
 
