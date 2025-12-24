@@ -27,7 +27,7 @@ class CropDialog(QDialog):
 
         self.btn_draw = QToolButton()
         self.btn_draw.setIcon(QIcon("ui/resources/icons/crop.png"))
-        self.btn_draw.setToolTip("Draw BBox on 3D View")
+        self.btn_draw.setToolTip("Draw BBox on 3D View (Right click on screen to finish)")
         self.btn_draw.clicked.connect(self._on_start_draw)
         
         h_layout.addWidget(self.le_bounds)

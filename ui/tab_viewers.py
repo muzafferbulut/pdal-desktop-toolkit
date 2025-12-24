@@ -75,6 +75,8 @@ class GISMapView(QWebEngineView):
 
 class ThreeDView(QFrame):
 
+    right_click_signal = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -92,6 +94,8 @@ class ThreeDView(QFrame):
 
         self.plotter.camera_position = "iso"
         self.plotter.show_axes()
+
+        self.plotter.iren.add_observer("RightButtonPressEvent", self._on_right_click)
 
     def render_point_cloud(self, file_path:str, data_dict: dict, color_by: str = "Elevation", reset_view: bool = True):
         x = data_dict.get(Dimensions.X)
@@ -247,3 +251,6 @@ class ThreeDView(QFrame):
             self.plotter.remove_actor(self.layer_actors[file_path])
             del self.layer_actors[file_path]
             self.plotter.render()
+
+    def _on_right_click(self, obj, event):
+        self.right_click_signal.emit()

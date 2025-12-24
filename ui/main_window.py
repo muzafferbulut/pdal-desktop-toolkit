@@ -473,6 +473,8 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.map_view, QIcon("ui/resources/icons/map_view.png"), "Map View")
         self.tab_widget.addTab(self.three_d_view, QIcon("ui/resources/icons/3d_view.png"), "3D View")
 
+        self.three_d_view.right_click_signal.connect(self._on_view_right_clicked)
+
         ThemeManager.add_observer(self.three_d_view.on_theme_change)
         ThemeManager.add_observer(self.map_view.on_theme_change)
 
@@ -506,13 +508,21 @@ class MainWindow(QMainWindow):
         self.three_d_view.disable_crop_gizmo()
 
     def _activate_crop_drawing(self):
-        """Dialog'dan çizim isteği geldiğinde çalışır."""
         self.tab_widget.setCurrentWidget(self.three_d_view)
+
+        if hasattr(self, 'crop_dialog'):
+            self.crop_dialog.hide() 
         
         def on_box_change(box):
             self.crop_dialog.update_bounds_from_gizmo(box.bounds)
 
         self.three_d_view.enable_crop_gizmo(callback=on_box_change)
+
+    def _on_view_right_clicked(self):
+        if hasattr(self, 'crop_dialog') and self.crop_dialog.isHidden():
+            self.crop_dialog.show()
+            self.crop_dialog.raise_()
+            self.crop_dialog.activateWindow()
         
     def _on_crop_dialog_finished(self, result):
         self.three_d_view.disable_crop_gizmo()
