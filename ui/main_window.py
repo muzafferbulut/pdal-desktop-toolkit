@@ -258,10 +258,7 @@ class MainWindow(QMainWindow):
             )
             self.themes_menu.addAction(action)
 
-    def _change_theme(self, theme_name: str, verbose: bool = True):
-        if verbose:
-            self.logger.info(f"Changing theme: {theme_name}")
-
+    def _change_theme(self, theme_name: str):
         ThemeManager.apply_theme(theme_name)
 
         if hasattr(self, "settings_manager"):
@@ -328,10 +325,6 @@ class MainWindow(QMainWindow):
                 self.map_view.draw_bbox(file_path, context.bounds)
         else:
             self.map_view.clear_bbox(file_path)
-
-        self.logger.info(
-            f"Layer visibility changed: {os.path.basename(file_path)} -> {is_visible}"
-        )
 
     def _handle_tool_selection(self, tool_name: str):
         current_file = self.data_sources_panel.get_selected_file_path()
@@ -667,7 +660,7 @@ class MainWindow(QMainWindow):
             if action.text() == saved_theme:
                 action.setChecked(True)
 
-        self._change_theme(saved_theme, verbose=False)
+        self._change_theme(saved_theme)
         self.settings_manager.load_window_state(self)
 
     def closeEvent(self, event: QCloseEvent):

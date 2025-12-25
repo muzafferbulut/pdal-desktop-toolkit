@@ -54,12 +54,11 @@ class ReaderWorker(QObject):
                     self.sample_data,
                 )
             else:
-                error_message = result.get("error", "Unknown reader error.")
                 self.progress.emit(0)
-                self.error.emit(error_message)
+                error_message = result.get("error", "An unspecified error occurred while reading the file.")
+                self.error.emit(f"Reader failed: {error_message}") #
         except Exception as e:
             import traceback
-
             error_details = (
                 f"Worker thread critical error: {e}\n{traceback.format_exc()}"
             )

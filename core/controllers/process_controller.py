@@ -56,7 +56,7 @@ class ProcessController(QObject):
         if 0 <= stage_index < len(context.stages):
             stage_name = context.stages[stage_index].name
             context.remove_stage(stage_index)
-            self.log_message.emit("INFO", f"Stage '{stage_name}' removed. Recalculating...")
+            self.log_message.emit("INFO", f"Stage '{stage_name}' removed. Recalculating pipeline...")
             new_pipeline = context.get_full_pipeline_json()
             self._start_filter_worker(file_path, new_pipeline, stage_object=None)
         else:

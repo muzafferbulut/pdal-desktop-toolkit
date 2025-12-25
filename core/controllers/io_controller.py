@@ -33,7 +33,7 @@ class IOController(QObject):
         file_name = os.path.basename(file_path)
         pipeline_config = context.get_full_pipeline_json()
         
-        self.log_message.emit("INFO", f"Starting export: '{file_name}' -> '{save_path}'...")
+        self.log_message.emit("INFO", f"Exporting layer: '{file_name}' to '{save_path}'")
         self._start_export_worker(save_path, pipeline_config)
 
     def save_pipeline(self, file_path: str, save_path: str):
@@ -45,7 +45,7 @@ class IOController(QObject):
         result = writer.write(save_path, pipeline_json)
 
         if result.get("status"):
-            self.log_message.emit("INFO", f"Pipeline saved: {save_path}")
+            self.log_message.emit("INFO", f"Pipeline configuration exported to: {save_path}")
             self.status_message.emit("Pipeline configuration saved.", 3000)
         else:
             error_msg = result.get("error")
@@ -65,7 +65,7 @@ class IOController(QObject):
         result = writer.write(save_path, metadata_to_save)
 
         if result.get("status"):
-            self.log_message.emit("INFO", f"Metadata saved: {save_path}")
+            self.log_message.emit("INFO", f"Metadata successfully saved: {save_path}")
             self.status_message.emit("Metadata saved successfully.", 3000)
         else:
             error_msg = result.get("error")
@@ -106,7 +106,7 @@ class IOController(QObject):
     def _on_worker_error(self, error_msg: str):
         self.progress_update.emit(0)
         self.status_message.emit("Error: Export failed.", 5000)
-        self.log_message.emit("ERROR", error_msg)
+        self.log_message.emit("ERROR", f"Critical IO error: {error_msg}")
 
     def save_batch_config(self, file_path: str, config_data: list):
         try:

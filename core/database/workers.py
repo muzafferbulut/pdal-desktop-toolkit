@@ -87,11 +87,11 @@ class DbImportWorker(QThread):
 
             self.signals.progress.emit(100)
             self.signals.finished.emit(
-                f"{count} nokta başarıyla veritabanına kaydedildi. (SRID: {target_srid})"
+                f"Successfully saved {count} points to database. (SRID: {target_srid})"
             )
 
         except Exception as e:
-            self.signals.error.emit(f"Veri tabanı yazım hatası: {str(e)}")
+            self.signals.error.emit(f"Database write error : {str(e)}")
 
 
 class DbLoadWorker(QThread):
@@ -123,7 +123,7 @@ class DbLoadWorker(QThread):
             pipeline.execute()
 
             if not pipeline.arrays:
-                raise Exception("Sorgu sonucu nokta bulunamadı.")
+                raise Exception("No points found for the given query.")
 
             df = pd.DataFrame(np.concatenate(pipeline.arrays))
 

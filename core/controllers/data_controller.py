@@ -219,5 +219,5 @@ class DataController(QObject):
 
     def _on_worker_error(self, error_msg: str):
         self.progress_update.emit(0)
-        self.log_message.emit("ERROR", error_msg)
-        self.status_message.emit("Operation failed. See logs.", 5000)
+        self.log_message.emit("ERROR", f"Data operation failed: {error_msg}") 
+        self.status_message.emit("Operation failed. Check logs for details.", 5000)

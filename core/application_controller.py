@@ -145,7 +145,7 @@ class ApplicationController(QObject):
             self.logger.error(f"Metadata read error: {file_name}")
             self.clear_metadata_signal.emit()
 
-    def handle_double_click(self, file_path: str, file_name: str):
+    def handle_double_click(self, file_path: str, file_name:str):
         context = self.data_controller.get_layer(file_path)
         if not context:
             return
@@ -181,7 +181,6 @@ class ApplicationController(QObject):
 
         context.active_style = style_name
         self.render_data_signal.emit(file_path, style_name, False)
-        self.logger.info(f"'{file_name}' style updated to '{style_name}'.")
 
     def handle_zoom_to_bbox(self, file_path: str, active_tab_index: int):
         context = self.data_controller.get_layer(file_path)
