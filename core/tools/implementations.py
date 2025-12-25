@@ -299,12 +299,14 @@ class ReprojectionFilter(BaseTool):
 
     def get_default_params(self) -> Dict[str, Any]:
         return {
+            "in_srs": "EPSG:4326",
             "out_srs": "EPSG:3857"
         }
 
     def build_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "type": "filters.reprojection",
+            "in_srs": params.get("in_srs", "EPSG:4326"),
             "out_srs": params.get("out_srs", "EPSG:3857")
         }
     
