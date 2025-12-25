@@ -1,10 +1,12 @@
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtCore import QSettings
 
+
 class SettingsManager:
     """
     Uygulama ayarlarını ve UI durumunu yöneten sınıf.
     """
+
     ORGANIZATION_NAME = "PDALToolkit"
     APPLICATION_NAME = "DesktopApp"
 
@@ -23,7 +25,7 @@ class SettingsManager:
         self.settings.beginGroup("MainWindow")
         geometry = self.settings.value("geometry")
         state = self.settings.value("state")
-        
+
         if geometry:
             window.restoreGeometry(geometry)
         if state:
@@ -37,7 +39,7 @@ class SettingsManager:
     def load_theme(self, default="Light Theme") -> str:
         """Kayıtlı temayı döndürür, yoksa varsayılanı verir."""
         return self.settings.value("theme", default)
-    
+
     def save_last_dir(self, path: str):
         self.settings.setValue("last_dir", path)
 

@@ -1,13 +1,20 @@
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QWidget, QVBoxLayout
+from PyQt5.QtWidgets import (
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QWidget,
+    QVBoxLayout,
+)
 from PyQt5.QtGui import QFont
 from typing import Dict, Any
 
+
 class MetadataPanel(QWidget):
 
-    def __init__(self, parent:QWidget = None):
+    def __init__(self, parent: QWidget = None):
         super().__init__(parent)
         self.layout = QVBoxLayout()
-        self.layout.setContentsMargins(0,0,0,0)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
         self.summary_metadata_table = self._setup_table()
@@ -16,7 +23,7 @@ class MetadataPanel(QWidget):
     def _setup_table(self) -> QTableWidget:
         table = QTableWidget()
         table.setColumnCount(2)
-        table.setHorizontalHeaderLabels(['Properties', 'Value'])
+        table.setHorizontalHeaderLabels(["Properties", "Value"])
         table.horizontalHeader().setVisible(False)
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         table.setSelectionMode(QTableWidget.NoSelection)
@@ -25,8 +32,8 @@ class MetadataPanel(QWidget):
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         table.setRowCount(1)
         return table
-    
-    def update_metadata(self, file_name:str, summary_metadata:Dict[str, Any]):
+
+    def update_metadata(self, file_name: str, summary_metadata: Dict[str, Any]):
         points = summary_metadata.get("points", "N/A")
         is_compressed = summary_metadata.get("is_compressed")
         crs_name = summary_metadata.get("crs_name", "N/A")
@@ -49,17 +56,17 @@ class MetadataPanel(QWidget):
             ("Unit", unit),
             ("X Range", x_range),
             ("Y Range", y_range),
-            ("Z Range", z_range)
+            ("Z Range", z_range),
         ]
 
         self.summary_metadata_table.setRowCount(len(data_to_display))
         bold_font = QFont()
         bold_font.setBold(True)
 
-        for row, (key ,value) in enumerate(data_to_display):
+        for row, (key, value) in enumerate(data_to_display):
             key_item = QTableWidgetItem(key)
             value_item = QTableWidgetItem(str(value))
-            
+
             key_item.setFont(bold_font)
 
             self.summary_metadata_table.setItem(row, 0, key_item)

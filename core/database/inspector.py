@@ -89,3 +89,13 @@ class DbInspector:
                 return {"status": True}
         except Exception as e:
             return {"status": False, "error": str(e)}
+        
+    def get_table_srid(self, schema: str, table: str) -> int:
+        sql = f"""
+            SELECT srid FROM public.pointcloud_formats 
+            WHERE pcid = (SELECT pcid FROM "{schema}"."{table}" WHERE pcid IS NOT NULL LIMIT 1)
+        """
+        res = self.execute_query(sql)
+        if res["status"] and not res["data"].empty:
+            return int(res["data"].iloc[0]['srid'])
+        return 4326

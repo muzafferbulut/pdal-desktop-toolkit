@@ -123,6 +123,10 @@
         }
       };
 
+      window.clearDrawingsJS = function() {
+          drawnItems.clearLayers();
+      };
+
       window.zoomOnlyJS = function (minx, miny, maxx, maxy) {
         var bounds = L.latLngBounds([[miny, minx], [maxy, maxx]]);
         map.fitBounds(bounds, { padding: [20, 20] });

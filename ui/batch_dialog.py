@@ -1,16 +1,31 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget, 
-                             QPushButton, QComboBox, QLabel, QStyle, QFrame, 
-                             QMessageBox, QTableWidget, QTableWidgetItem, 
-                             QHeaderView, QAbstractItemView, QFormLayout, 
-                             QLineEdit, QDialogButtonBox)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QListWidget,
+    QPushButton,
+    QComboBox,
+    QLabel,
+    QStyle,
+    QFrame,
+    QMessageBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QAbstractItemView,
+    QFormLayout,
+    QLineEdit,
+    QDialogButtonBox,
+)
 from core.pipeline_builder import PipelineBuilder
 from ui.filter_dialog import FilterParamsDialog
 from core.tools.registry import ToolRegistry
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QSize
 
+
 class SavePresetDialog(QDialog):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Save Batch Preset")
@@ -24,7 +39,7 @@ class SavePresetDialog(QDialog):
         self.setLayout(layout)
         form_layout = QFormLayout()
         self.le_name = QLineEdit()
-        self.le_name.setPlaceholderText("Enter a unique name for this preset...")   
+        self.le_name.setPlaceholderText("Enter a unique name for this preset...")
         self.le_desc = QLineEdit()
         self.le_desc.setPlaceholderText("Optional description...")
         form_layout.addRow("Preset Name:", self.le_name)
@@ -39,13 +54,14 @@ class SavePresetDialog(QDialog):
         if not self.le_name.text().strip():
             QMessageBox.warning(self, "Missing Name", "Please enter a preset name.")
             return
-        
+
         self.name = self.le_name.text().strip()
         self.description = self.le_desc.text().strip()
         self.accept()
 
     def get_data(self):
         return self.name, self.description
+
 
 class PresetSelectionDialog(QDialog):
 
@@ -55,7 +71,7 @@ class PresetSelectionDialog(QDialog):
         self.resize(600, 400)
         self.presets = presets
         self.selected_preset = None
-        self.delete_requested = None 
+        self.delete_requested = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -104,12 +120,16 @@ class PresetSelectionDialog(QDialog):
         row = self.table.currentRow()
         if row >= 0:
             preset_id = self.table.item(row, 0).data(Qt.UserRole)
-            res = QMessageBox.question(self, "Confirm Delete", 
-                                     "Are you sure you want to delete this preset?",
-                                     QMessageBox.Yes | QMessageBox.No)
+            res = QMessageBox.question(
+                self,
+                "Confirm Delete",
+                "Are you sure you want to delete this preset?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
             if res == QMessageBox.Yes:
                 self.delete_requested = preset_id
-                self.reject() 
+                self.reject()
+
 
 class BatchProcessDialog(QDialog):
 
@@ -118,7 +138,7 @@ class BatchProcessDialog(QDialog):
         self.controller = controller
         self.setWindowTitle("Batch Processor")
         self.resize(400, 500)
-        self.queued_stages = [] 
+        self.queued_stages = []
         self._setup_ui()
 
     def _setup_ui(self):
@@ -129,15 +149,11 @@ class BatchProcessDialog(QDialog):
         toolbar_layout.setSpacing(8)
 
         btn_load = self._create_icon_button(
-            "Load Preset", 
-            QIcon("ui/resources/icons/open.png"),
-            self._on_load_preset
+            "Load Preset", QIcon("ui/resources/icons/open.png"), self._on_load_preset
         )
 
         btn_save = self._create_icon_button(
-            "Save Preset", 
-            QIcon("ui/resources/icons/save.png"),
-            self._on_save_preset
+            "Save Preset", QIcon("ui/resources/icons/save.png"), self._on_save_preset
         )
 
         toolbar_layout.addWidget(btn_load)
@@ -146,21 +162,15 @@ class BatchProcessDialog(QDialog):
         self._add_separator(toolbar_layout)
 
         btn_up = self._create_icon_button(
-            "Move Up", 
-            QIcon("ui/resources/icons/up.png"), 
-            self._move_up
+            "Move Up", QIcon("ui/resources/icons/up.png"), self._move_up
         )
 
         btn_down = self._create_icon_button(
-            "Move Down", 
-            QIcon("ui/resources/icons/down.png"), 
-            self._move_down
+            "Move Down", QIcon("ui/resources/icons/down.png"), self._move_down
         )
 
         btn_remove = self._create_icon_button(
-            "Remove Selected", 
-            QIcon("ui/resources/icons/remove.png"), 
-            self._remove_item
+            "Remove Selected", QIcon("ui/resources/icons/remove.png"), self._remove_item
         )
 
         toolbar_layout.addWidget(btn_up)
@@ -168,9 +178,7 @@ class BatchProcessDialog(QDialog):
         toolbar_layout.addWidget(btn_remove)
 
         btn_run = self._create_icon_button(
-            "Run Batch", 
-            QIcon("ui/resources/icons/run.png"), 
-            self.accept
+            "Run Batch", QIcon("ui/resources/icons/run.png"), self.accept
         )
 
         toolbar_layout.addWidget(btn_run)
@@ -189,13 +197,15 @@ class BatchProcessDialog(QDialog):
 
         self.cb_tools = QComboBox()
         self.cb_tools.setFixedHeight(32)
-        self.cb_tools.setStyleSheet("""
+        self.cb_tools.setStyleSheet(
+            """
             QComboBox { padding-left: 5px; }
             QComboBox QAbstractItemView::item { 
                 min-height: 30px; 
                 padding: 4px; 
             }
-        """)
+        """
+        )
 
         tools = ToolRegistry.get_all_tools()
         for name, tool_cls in tools.items():
@@ -203,9 +213,9 @@ class BatchProcessDialog(QDialog):
                 self.cb_tools.addItem(name)
 
         btn_add = self._create_icon_button(
-            "Add Tool to Queue", 
-            QIcon("ui/resources/icons/add.png"), 
-            self._on_add_tool_clicked
+            "Add Tool to Queue",
+            QIcon("ui/resources/icons/add.png"),
+            self._on_add_tool_clicked,
         )
 
         btn_add.setFixedSize(32, 32)
@@ -218,12 +228,14 @@ class BatchProcessDialog(QDialog):
         layout.addLayout(tool_select_layout)
         layout.addWidget(QLabel("Execution Queue:"))
         self.list_widget = QListWidget()
-        self.list_widget.setStyleSheet("""
+        self.list_widget.setStyleSheet(
+            """
             QListWidget::item { 
                 padding: 5px; 
                 border-bottom: 1px solid #eee; 
             }
-        """)
+        """
+        )
         layout.addWidget(self.list_widget)
 
     def _create_icon_button(self, tooltip, icon, slot):
@@ -234,7 +246,8 @@ class BatchProcessDialog(QDialog):
         btn.setIconSize(QSize(20, 20))
         btn.clicked.connect(slot)
 
-        btn.setStyleSheet("""
+        btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: transparent;
                 border: none;
@@ -248,7 +261,8 @@ class BatchProcessDialog(QDialog):
                 padding-left: 1px;
                 padding-top: 1px;
             }
-        """)
+        """
+        )
 
         return btn
 
@@ -285,18 +299,22 @@ class BatchProcessDialog(QDialog):
     def _move_up(self):
         row = self.list_widget.currentRow()
         if row > 0:
-            self.queued_stages[row], self.queued_stages[row-1] = \
-                self.queued_stages[row-1], self.queued_stages[row]
+            self.queued_stages[row], self.queued_stages[row - 1] = (
+                self.queued_stages[row - 1],
+                self.queued_stages[row],
+            )
             self._update_list()
-            self.list_widget.setCurrentRow(row-1)
+            self.list_widget.setCurrentRow(row - 1)
 
     def _move_down(self):
         row = self.list_widget.currentRow()
         if row < len(self.queued_stages) - 1:
-            self.queued_stages[row], self.queued_stages[row+1] = \
-                self.queued_stages[row+1], self.queued_stages[row]
+            self.queued_stages[row], self.queued_stages[row + 1] = (
+                self.queued_stages[row + 1],
+                self.queued_stages[row],
+            )
             self._update_list()
-            self.list_widget.setCurrentRow(row+1)
+            self.list_widget.setCurrentRow(row + 1)
 
     def _on_save_preset(self):
         if not self.queued_stages:
@@ -306,26 +324,23 @@ class BatchProcessDialog(QDialog):
         dialog = SavePresetDialog(self)
         if dialog.exec_():
             name, desc = dialog.get_data()
-            
+
             export_data = []
             for stage in self.queued_stages:
-                export_data.append({
-                    "tool_name": stage.name,
-                    "params": stage.params
-                })
+                export_data.append({"tool_name": stage.name, "params": stage.params})
 
             self.controller.io_controller.save_batch_to_db(
-                name=name, 
-                config_data=export_data,
-                description=desc
+                name=name, config_data=export_data, description=desc
             )
 
     def _on_load_preset(self):
-        while True: 
+        while True:
             presets = self.controller.io_controller.get_batch_presets_from_db()
-            
+
             if not presets:
-                QMessageBox.information(self, "Info", "No saved presets found in database.")
+                QMessageBox.information(
+                    self, "Info", "No saved presets found in database."
+                )
                 return
 
             dialog = PresetSelectionDialog(presets, self)
@@ -334,11 +349,13 @@ class BatchProcessDialog(QDialog):
             if result == QDialog.Accepted and dialog.selected_preset:
                 self._load_configuration(dialog.selected_preset["config"])
                 return
-            
+
             elif dialog.delete_requested:
-                self.controller.io_controller.delete_batch_preset(dialog.delete_requested)
-                continue 
-            
+                self.controller.io_controller.delete_batch_preset(
+                    dialog.delete_requested
+                )
+                continue
+
             else:
                 return
 

@@ -1,12 +1,13 @@
 from data.data_handler import IBasicReader, IMetadataExtractor, IDataSampler
+from core.database.workers import DbImportWorker, DbLoadWorker
 from PyQt5.QtCore import QObject, pyqtSignal, QThread
 from core.layer_context import LayerContext
 from core.read_worker import ReaderWorker
 from core.merge_worker import MergeWorker
-from core.database.workers import DbImportWorker, DbLoadWorker
 from typing import Dict, Optional, List
 from core.logger import Logger
 import numpy as np
+import json
 import os
 
 class DataController(QObject):
@@ -75,10 +76,27 @@ class DataController(QObject):
         self.file_loaded.emit(file_path, file_name)
         self.progress_update.emit(100)
 
+    def _detect_srid(self, layer: LayerContext) -> str:
+        if not layer or not layer.full_metadata:
+            return "4326"
+
+        meta_str = json.dumps(layer.full_metadata).upper()
+        
+        if "3857" in meta_str or "GOOGLE" in meta_str or "PSEUDO-MERCATOR" in meta_str:
+            return "3857"
+        elif "4326" in meta_str or "WGS 84" in meta_str:
+            return "4326"
+            
+        return "4326"
+
     def export_active_layer_to_db(self, conn_info, schema, table):
         if not self.active_layer_path: return
+
         layer = self._data_cache.get(self.active_layer_path)
+
         if not layer or layer.current_render_data is None: return
+
+        target_srid = self._detect_srid(layer)
 
         raw_data = layer.current_render_data
         data_to_write = None
@@ -99,13 +117,27 @@ class DataController(QObject):
             data_to_write = raw_data.to_records(index=False)
 
         source_name = os.path.basename(self.active_layer_path)
-        self.db_import_thread = DbImportWorker(data_to_write, conn_info, schema, table, source_name, True)
+        self.logger.info(f"Exporting '{source_name}' to DB with SRID: {target_srid}")
+
+        self.db_import_thread = DbImportWorker(
+            data_to_write, conn_info, schema, table, source_name, 
+            is_array=True, srid=target_srid
+        )
         self._connect_db_signals(self.db_import_thread)
         self.db_import_thread.start()
 
     def import_layer_to_db(self, source_path, conn_info, schema, table):
         source_name = os.path.basename(source_path)
-        self.db_import_thread = DbImportWorker(source_path, conn_info, schema, table, source_name, False)
+        
+        layer = self._data_cache.get(source_path)
+        detected_srid = self._detect_srid(layer) if layer else "4326"
+
+        self.logger.info(f"Importing file '{source_name}' to DB with detected SRID: {detected_srid}")
+        
+        self.db_import_thread = DbImportWorker(
+            source_path, conn_info, schema, table, source_name, 
+            is_array=False, srid=detected_srid
+        )
         self._connect_db_signals(self.db_import_thread)
         self.db_import_thread.start()
 

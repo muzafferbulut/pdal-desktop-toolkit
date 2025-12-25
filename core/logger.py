@@ -1,6 +1,5 @@
 from PyQt5.QtCore import QObject, pyqtSignal
 from datetime import datetime
-import sys
 
 class Logger(QObject):
 

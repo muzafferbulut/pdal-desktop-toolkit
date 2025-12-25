@@ -1,11 +1,19 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLineEdit,QToolButton, QDialogButtonBox
+from PyQt5.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QToolButton,
+    QDialogButtonBox,
+)
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QIcon
 
+
 class CropDialog(QDialog):
-    
+
     draw_requested = pyqtSignal()
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Crop Point Cloud")
@@ -20,26 +28,30 @@ class CropDialog(QDialog):
         h_layout = QHBoxLayout()
         h_layout.setContentsMargins(0, 0, 0, 0)
         h_layout.setSpacing(5)
-        
+
         self.le_bounds = QLineEdit()
         self.le_bounds.setPlaceholderText("([minx, maxx], [miny, maxy], [minz, maxz])")
         self.le_bounds.setToolTip("Enter bounds in PDAL format or use the buttons.")
 
         self.btn_draw = QToolButton()
         self.btn_draw.setIcon(QIcon("ui/resources/icons/crop.png"))
-        self.btn_draw.setToolTip("Draw BBox on 3D View (Right click on screen to finish)")
+        self.btn_draw.setToolTip(
+            "Draw BBox on 3D View (Right click on screen to finish)"
+        )
         self.btn_draw.clicked.connect(self._on_start_draw)
-        
+
         h_layout.addWidget(self.le_bounds)
         h_layout.addWidget(self.btn_draw)
-        
+
         layout.addLayout(h_layout)
 
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
         self.button_box.accepted.connect(self._on_accept)
         self.button_box.rejected.connect(self.reject)
         self.button_box.button(QDialogButtonBox.Ok).setText("Apply")
-        
+
         layout.addWidget(self.button_box)
 
     def _on_start_draw(self):

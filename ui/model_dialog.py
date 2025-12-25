@@ -1,10 +1,21 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QDoubleSpinBox, 
-                             QComboBox, QLineEdit, QToolButton, QDialogButtonBox, 
-                             QHBoxLayout, QFileDialog, QMessageBox)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QFormLayout,
+    QDoubleSpinBox,
+    QComboBox,
+    QLineEdit,
+    QToolButton,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QFileDialog,
+    QMessageBox,
+)
 from PyQt5.QtGui import QIcon
 
+
 class ModelDialog(QDialog):
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Generate Elevation Model")
@@ -31,19 +42,19 @@ class ModelDialog(QDialog):
         file_layout = QHBoxLayout()
         self.le_output = QLineEdit()
         self.le_output.setPlaceholderText("Select output file (*.tif)...")
-        
+
         self.btn_browse = QToolButton()
         try:
             self.btn_browse.setIcon(QIcon("ui/resources/icons/open.png"))
         except:
             self.btn_browse.setText("...")
         self.btn_browse.clicked.connect(self._browse_file)
-        
+
         file_layout.addWidget(self.le_output)
         file_layout.addWidget(self.btn_browse)
-        
+
         form.addRow("Output GeoTIFF:", file_layout)
-        
+
         layout.addLayout(form)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self._on_accept)
@@ -51,7 +62,9 @@ class ModelDialog(QDialog):
         layout.addWidget(buttons)
 
     def _browse_file(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Save Elevation Model", "", "GeoTIFF Files (*.tif)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Elevation Model", "", "GeoTIFF Files (*.tif)"
+        )
         if path:
             if not path.lower().endswith(".tif"):
                 path += ".tif"
@@ -61,11 +74,11 @@ class ModelDialog(QDialog):
         if not self.le_output.text():
             QMessageBox.warning(self, "Missing Input", "Please specify an output file.")
             return
-        
+
         self.result_params = {
             "resolution": self.sb_resolution.value(),
             "output_type": self.cb_type.currentText(),
-            "filename": self.le_output.text()
+            "filename": self.le_output.text(),
         }
         self.accept()
 

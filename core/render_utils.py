@@ -1,8 +1,9 @@
 from core.enums import Dimensions
 import numpy as np
 
+
 class RenderUtils:
-    
+
     # Görüntülenecek maksimum nokta sayısı (1 Milyon)
     MAX_VISIBLE_POINTS = 1_000_000
 
@@ -26,7 +27,7 @@ class RenderUtils:
         15: "Transmission Tower",
         16: "Wire-Structure Connector",
         17: "Bridge Deck",
-        18: "High Noise"
+        18: "High Noise",
     }
 
     @staticmethod
@@ -43,22 +44,22 @@ class RenderUtils:
 
         if Dimensions.X not in data_dict:
             return data_dict
-        
+
         total_points = len(data_dict[Dimensions.X])
         if total_points <= RenderUtils.MAX_VISIBLE_POINTS:
             return data_dict
-        
+
         step = max(1, total_points // RenderUtils.MAX_VISIBLE_POINTS)
-        
+
         if step <= 1:
             return data_dict
 
         result_dict = {}
-        
+
         for key, value in data_dict.items():
             if isinstance(value, np.ndarray) and len(value) == total_points:
                 result_dict[key] = value[::step].copy()
             else:
                 result_dict[key] = value
-        
+
         return result_dict

@@ -8,6 +8,7 @@ from core.enums import Dimensions
 from core.logger import Logger
 import os
 
+
 class ApplicationController(QObject):
     # statistics
     stats_ready_signal = pyqtSignal(str, dict)
@@ -19,34 +20,40 @@ class ApplicationController(QObject):
     ui_status_message_signal = pyqtSignal(str, int)
     zoom_map_only_signal = pyqtSignal(dict)
     focus_3d_mesh_signal = pyqtSignal(str)
-    
-    # Görünüm Sinyalleri
-    render_data_signal = pyqtSignal(str, str, bool) # (filepath, style_name, reset_view)
-    draw_bbox_signal = pyqtSignal(dict) # (bounds)
-    clear_views_signal = pyqtSignal()
-    
-    # Metadata Sinyalleri
-    update_metadata_signal = pyqtSignal(str, dict) 
-    clear_metadata_signal = pyqtSignal()
-    
-    # Katman Sinyalleri
-    file_load_success_signal = pyqtSignal(str, str) 
-    file_removed_signal = pyqtSignal(str) 
-    stage_added_signal = pyqtSignal(str, str, str) 
-    
-    # Export Sinyalleri
-    export_success_signal = pyqtSignal(str) 
 
-    def __init__(self, 
-                 basic_reader: IBasicReader, 
-                 metadata_extractor: IMetadataExtractor, 
-                 data_sampler: IDataSampler, 
-                 logger: Logger, 
-                 parent=None):
-        
+    # Görünüm Sinyalleri
+    render_data_signal = pyqtSignal(
+        str, str, bool
+    )  # (filepath, style_name, reset_view)
+    draw_bbox_signal = pyqtSignal(dict)  # (bounds)
+    clear_views_signal = pyqtSignal()
+
+    # Metadata Sinyalleri
+    update_metadata_signal = pyqtSignal(str, dict)
+    clear_metadata_signal = pyqtSignal()
+
+    # Katman Sinyalleri
+    file_load_success_signal = pyqtSignal(str, str)
+    file_removed_signal = pyqtSignal(str)
+    stage_added_signal = pyqtSignal(str, str, str)
+
+    # Export Sinyalleri
+    export_success_signal = pyqtSignal(str)
+
+    def __init__(
+        self,
+        basic_reader: IBasicReader,
+        metadata_extractor: IMetadataExtractor,
+        data_sampler: IDataSampler,
+        logger: Logger,
+        parent=None,
+    ):
+
         super().__init__(parent)
         self.logger = logger
-        self.data_controller = DataController(basic_reader, metadata_extractor, data_sampler, logger)
+        self.data_controller = DataController(
+            basic_reader, metadata_extractor, data_sampler, logger
+        )
         self.process_controller = ProcessController(self.data_controller, logger)
         self.io_controller = IOController(self.data_controller, logger)
 
@@ -55,24 +62,28 @@ class ApplicationController(QObject):
     def _connect_signals(self):
         # --- DataController Sinyalleri ---
         self.data_controller.file_loaded.connect(self._on_file_loaded)
-        self.data_controller.file_removed.connect(self._on_layer_removed) 
+        self.data_controller.file_removed.connect(self._on_layer_removed)
         self.data_controller.progress_update.connect(self.progress_update_signal)
         self.data_controller.status_message.connect(self.ui_status_message_signal)
-        
+
         # --- ProcessController Sinyalleri ---
-        self.process_controller.layer_updated.connect(self._refresh_layer_view) 
+        self.process_controller.layer_updated.connect(self._refresh_layer_view)
         self.process_controller.stage_added.connect(self.stage_added_signal)
         self.process_controller.stats_ready.connect(self.stats_ready_signal)
         self.process_controller.progress_update.connect(self.progress_update_signal)
         self.process_controller.status_message.connect(self.ui_status_message_signal)
-        
+
         # --- IOController Sinyalleri ---
         self.io_controller.export_success.connect(self.export_success_signal)
         self.io_controller.progress_update.connect(self.progress_update_signal)
         self.io_controller.status_message.connect(self.ui_status_message_signal)
 
         # --- Loglama Sinyalleri ---
-        for controller in [self.data_controller, self.process_controller, self.io_controller]:
+        for controller in [
+            self.data_controller,
+            self.process_controller,
+            self.io_controller,
+        ]:
             controller.log_message.connect(self._handle_log_message)
 
     def _handle_log_message(self, level: str, message: str):
@@ -90,7 +101,9 @@ class ApplicationController(QObject):
     def handle_remove_layer(self, file_path: str):
         self.data_controller.remove_layer(file_path)
 
-    def start_filter_process(self, file_path: str, tool_name: str, user_params: Dict[str, Any]):
+    def start_filter_process(
+        self, file_path: str, tool_name: str, user_params: Dict[str, Any]
+    ):
         self.process_controller.apply_filter(file_path, tool_name, user_params)
 
     def handle_remove_stage(self, file_path: str, stage_index: int):
@@ -134,9 +147,10 @@ class ApplicationController(QObject):
 
     def handle_double_click(self, file_path: str, file_name: str):
         context = self.data_controller.get_layer(file_path)
-        if not context: return
+        if not context:
+            return
 
-        is_visible = getattr(context, 'is_visible', True)
+        is_visible = getattr(context, "is_visible", True)
 
         bounds = context.bounds
         if bounds and bounds.get("status"):
@@ -154,8 +168,9 @@ class ApplicationController(QObject):
 
     def handle_style_change(self, file_path: str, style_name: str):
         context = self.data_controller.get_layer(file_path)
-        
-        if not context or context.current_render_data is None: return
+
+        if not context or context.current_render_data is None:
+            return
 
         data = context.current_render_data
         file_name = os.path.basename(file_path)
@@ -163,9 +178,9 @@ class ApplicationController(QObject):
         if style_name == Dimensions.INTENSITY and Dimensions.INTENSITY not in data:
             self.logger.warning(f"'{file_name}' does not contain Intensity channel.")
             return
-        
+
         context.active_style = style_name
-        self.render_data_signal.emit(file_path, style_name, False) 
+        self.render_data_signal.emit(file_path, style_name, False)
         self.logger.info(f"'{file_name}' style updated to '{style_name}'.")
 
     def handle_zoom_to_bbox(self, file_path: str, active_tab_index: int):
@@ -173,7 +188,7 @@ class ApplicationController(QObject):
         if not (context and context.bounds and context.bounds.get("status")):
             return
 
-        is_visible = getattr(context, 'is_visible', True)
+        is_visible = getattr(context, "is_visible", True)
 
         if active_tab_index == 0:
             if is_visible:
@@ -187,7 +202,7 @@ class ApplicationController(QObject):
                 self.render_data_signal.emit(file_path, current_style, True)
             else:
                 self.focus_3d_mesh_signal.emit(file_path)
-                
+
     def _on_layer_removed(self, file_path: str):
         self.file_removed_signal.emit(file_path)
         self.ui_status_message_signal.emit("Layer removed.", 3000)
@@ -201,7 +216,7 @@ class ApplicationController(QObject):
     def start_batch_process(self, file_path: str, stages: list):
         self.process_controller.apply_batch_process(file_path, stages)
 
-    def _on_file_loaded(self, file_path:str, file_name:str):
+    def _on_file_loaded(self, file_path: str, file_name: str):
         self.file_load_success_signal.emit(file_path, file_name)
         self.handle_double_click(file_path, file_name)
 

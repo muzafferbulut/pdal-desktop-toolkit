@@ -3,6 +3,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, pyqtSignal
 from typing import Optional
 
+
 class DataSourcesPanel(QWidget):
 
     file_single_clicked = pyqtSignal(str, str)
@@ -16,10 +17,10 @@ class DataSourcesPanel(QWidget):
     style_changed_requested = pyqtSignal(str, str)
     visibility_changed_requested = pyqtSignal(str, bool)
 
-    def __init__(self, parent:Optional[QWidget] = None):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.layout = QVBoxLayout()
-        self.layout.setContentsMargins(0,0,0,0)
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.layout)
 
         self.data_tree = self._setup_tree_widget()
@@ -37,19 +38,19 @@ class DataSourcesPanel(QWidget):
         tree.setContextMenuPolicy(Qt.CustomContextMenu)
         tree.customContextMenuRequested.connect(self._show_context_menu)
         return tree
-    
-    def _on_item_changed(self, item:QTreeWidgetItem, column:int):
+
+    def _on_item_changed(self, item: QTreeWidgetItem, column: int):
         if item.data(0, Qt.UserRole + 1) == "root":
             file_path = item.data(0, Qt.UserRole)
             is_visible = item.checkState(0) == Qt.Checked
             self.visibility_changed_requested.emit(file_path, is_visible)
-    
+
     def get_selected_file_path(self) -> Optional[str]:
         item = self.data_tree.currentItem()
         if item:
             return item.data(0, Qt.UserRole)
         return None
-    
+
     def _show_context_menu(self, position):
         item = self.data_tree.itemAt(position)
         if not item:
@@ -61,18 +62,30 @@ class DataSourcesPanel(QWidget):
         menu = QMenu()
 
         if item_type == "root":
-            action_zoom = menu.addAction(QIcon("ui/resources/icons/zoom_to.png"), "Zoom to BBox")
-            color_menu = menu.addMenu(QIcon("ui/resources/icons/color_by.png"), "Color By")
+            action_zoom = menu.addAction(
+                QIcon("ui/resources/icons/zoom_to.png"), "Zoom to BBox"
+            )
+            color_menu = menu.addMenu(
+                QIcon("ui/resources/icons/color_by.png"), "Color By"
+            )
             act_elev = color_menu.addAction("Elevation (Z)")
             act_int = color_menu.addAction("Intensity")
             act_rgb = color_menu.addAction("RGB (True Color)")
             act_cls = color_menu.addAction("Classification")
             menu.addSeparator()
-            action_export = menu.addAction(QIcon("ui/resources/icons/export.png"), "Export Layer")
-            action_save_pipe = menu.addAction(QIcon("ui/resources/icons/save_pipeline.png"), "Save Pipeline")
-            action_save_meta = menu.addAction(QIcon("ui/resources/icons/metadata.png"), "Save Full Metadata")
+            action_export = menu.addAction(
+                QIcon("ui/resources/icons/export.png"), "Export Layer"
+            )
+            action_save_pipe = menu.addAction(
+                QIcon("ui/resources/icons/save_pipeline.png"), "Save Pipeline"
+            )
+            action_save_meta = menu.addAction(
+                QIcon("ui/resources/icons/metadata.png"), "Save Full Metadata"
+            )
             menu.addSeparator()
-            action_remove = menu.addAction(QIcon("ui/resources/icons/remove.png"), "Remove Layer")
+            action_remove = menu.addAction(
+                QIcon("ui/resources/icons/remove.png"), "Remove Layer"
+            )
 
             selected_action = menu.exec_(self.data_tree.mapToGlobal(position))
 
@@ -96,9 +109,11 @@ class DataSourcesPanel(QWidget):
                 self.style_changed_requested.emit(file_path, "Classification")
 
         elif item_type == "stage":
-            action_delete_stage = menu.addAction(QIcon("ui/resources/icons/remove.png"), "Delete Stage")
+            action_delete_stage = menu.addAction(
+                QIcon("ui/resources/icons/remove.png"), "Delete Stage"
+            )
             selected_action = menu.exec_(self.data_tree.mapToGlobal(position))
-            
+
             if selected_action == action_delete_stage:
                 parent = item.parent()
                 index = parent.indexOfChild(item)
@@ -119,11 +134,15 @@ class DataSourcesPanel(QWidget):
         if file_path:
             self.file_double_clicked.emit(file_path, file_name)
 
-    def add_file(self, file_path:str, file_name:str):
+    def add_file(self, file_path: str, file_name: str):
         if file_path in self.layer_items:
             return
-                
-        icon_path = "ui/resources/icons/database.png" if file_path.startswith("DB://") else "ui/resources/icons/file.png"
+
+        icon_path = (
+            "ui/resources/icons/database.png"
+            if file_path.startswith("DB://")
+            else "ui/resources/icons/file.png"
+        )
         file_icon = QIcon(icon_path)
 
         root_item = QTreeWidgetItem(self.data_tree, [file_name])
@@ -137,17 +156,17 @@ class DataSourcesPanel(QWidget):
         self.data_tree.setCurrentItem(root_item)
         self.file_single_clicked.emit(file_path, file_name)
 
-    def add_stage_node(self, file_path:str, stage_name:str, stage_details:str):
+    def add_stage_node(self, file_path: str, stage_name: str, stage_details: str):
         parent_item = self.layer_items.get(file_path)
 
         if not parent_item:
             return
-        
+
         try:
             stage_icon = QIcon("ui/resources/icons/stage.png")
         except:
             stage_icon = QIcon()
-        
+
         display_text = f"{stage_name}"
         if stage_details:
             display_text += f" ({stage_details})"
@@ -158,13 +177,13 @@ class DataSourcesPanel(QWidget):
         child_item.setData(0, Qt.UserRole + 1, "stage")
         parent_item.setExpanded(True)
 
-    def remove_layer(self, file_path:str):
+    def remove_layer(self, file_path: str):
         if file_path in self.layer_items:
             item = self.layer_items[file_path]
             root = self.data_tree.invisibleRootItem()
             root.removeChild(item)
             del self.layer_items[file_path]
-    
+
     def get_loaded_layers(self) -> dict:
         layers = {}
         for path, item in self.layer_items.items():

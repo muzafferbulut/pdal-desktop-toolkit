@@ -1,31 +1,44 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QDialogButtonBox,
-    QLabel, QSpinBox, QDoubleSpinBox, QLineEdit, QCheckBox, QGroupBox,
-    QFrame, QMessageBox
+    QDialog,
+    QVBoxLayout,
+    QHBoxLayout,
+    QFormLayout,
+    QDialogButtonBox,
+    QLabel,
+    QSpinBox,
+    QDoubleSpinBox,
+    QLineEdit,
+    QCheckBox,
+    QGroupBox,
+    QFrame,
+    QMessageBox,
 )
 from core.tools.registry import ToolRegistry
 from PyQt5.QtCore import Qt
 from typing import Dict, Any
 
+
 class FilterParamsDialog(QDialog):
-    
+
     def __init__(self, tool_name: str, parent=None):
         super().__init__(parent)
         self.tool_name = tool_name
         self.result_params = {}
         self._widgets = {}
-        
+
         try:
             self.tool_cls = ToolRegistry.get_tool(tool_name)
-            self.tool_instance = self.tool_cls() 
+            self.tool_instance = self.tool_cls()
         except ValueError:
-            QMessageBox.critical(self, "Error", f"Tool definition not found: {tool_name}")
+            QMessageBox.critical(
+                self, "Error", f"Tool definition not found: {tool_name}"
+            )
             self.reject()
             return
 
         self.default_params = self.tool_instance.get_default_params()
         self.description_text = self.tool_instance.description
-        
+
         self.setWindowTitle(f"Configure {self.tool_cls.name}")
         self.setMinimumWidth(450)
         self._setup_ui()
@@ -38,10 +51,10 @@ class FilterParamsDialog(QDialog):
 
         header_layout = QHBoxLayout()
         title_content_layout = QVBoxLayout()
-        
+
         title_label = QLabel(self.tool_cls.name)
         title_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50;")
-        
+
         desc_label = QLabel(self.description_text)
         desc_label.setStyleSheet("color: #7f8c8d; font-size: 12px;")
         desc_label.setWordWrap(True)
@@ -68,7 +81,7 @@ class FilterParamsDialog(QDialog):
             label_text = key.replace("_", " ").title()
             label_widget = QLabel(label_text)
             label_widget.setStyleSheet("font-weight: 500;")
-            
+
             widget = self._create_widget_for_value(value)
             self._widgets[key] = widget
             form_layout.addRow(label_widget, widget)
@@ -81,7 +94,7 @@ class FilterParamsDialog(QDialog):
         button_box.accepted.connect(self._on_accept)
         button_box.rejected.connect(self.reject)
         button_box.button(QDialogButtonBox.Ok).setText("Apply")
-        
+
         main_layout.addWidget(button_box)
 
     def _create_widget_for_value(self, value):

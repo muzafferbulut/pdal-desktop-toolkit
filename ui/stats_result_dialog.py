@@ -1,11 +1,21 @@
-from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QTabWidget, QTableWidget, 
-                             QTableWidgetItem, QHeaderView, QTextEdit, QDialogButtonBox, QWidget)
+from PyQt5.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QTabWidget,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QTextEdit,
+    QDialogButtonBox,
+    QWidget,
+)
 from core.render_utils import RenderUtils
 from PyQt5.QtGui import QFont
 import json
 
+
 class StatsResultDialog(QDialog):
-    
+
     def __init__(self, file_name, stats_data, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"Statistics: {file_name}")
@@ -18,15 +28,17 @@ class StatsResultDialog(QDialog):
         self.setLayout(layout)
 
         tabs = QTabWidget()
-        
+
         self.tab_dimensions = QWidget()
         self._setup_dimensions_tab()
         tabs.addTab(self.tab_dimensions, "Dimensions")
 
-        if "statistic" in self.stats_data and any(d.get("name") == "Classification" for d in self.stats_data["statistic"]):
-             self.tab_classes = QWidget()
-             self._setup_classes_tab()
-             tabs.addTab(self.tab_classes, "Classes")
+        if "statistic" in self.stats_data and any(
+            d.get("name") == "Classification" for d in self.stats_data["statistic"]
+        ):
+            self.tab_classes = QWidget()
+            self._setup_classes_tab()
+            tabs.addTab(self.tab_classes, "Classes")
 
         self.tab_json = QWidget()
         self._setup_json_tab()
@@ -47,18 +59,18 @@ class StatsResultDialog(QDialog):
         table.setColumnCount(len(columns))
         table.setHorizontalHeaderLabels(columns)
         table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        
+
         stats_list = self.stats_data.get("statistic", [])
         table.setRowCount(len(stats_list))
-        
+
         for row, stat in enumerate(stats_list):
             name = stat.get("name", "N/A")
             try:
-                min_val = stat.get('minimum', stat.get('min', 0))
-                max_val = stat.get('maximum', stat.get('max', 0))
-                avg_val = stat.get('average', stat.get('mean', 0))
-                std_val = stat.get('stddev', 0)
-                var_val = stat.get('variance', 0)
+                min_val = stat.get("minimum", stat.get("min", 0))
+                max_val = stat.get("maximum", stat.get("max", 0))
+                avg_val = stat.get("average", stat.get("mean", 0))
+                std_val = stat.get("stddev", 0)
+                var_val = stat.get("variance", 0)
                 table.setItem(row, 0, QTableWidgetItem(str(name)))
                 table.setItem(row, 1, QTableWidgetItem(f"{float(min_val):.4f}"))
                 table.setItem(row, 2, QTableWidgetItem(f"{float(max_val):.4f}"))
@@ -73,15 +85,17 @@ class StatsResultDialog(QDialog):
     def _setup_classes_tab(self):
         layout = QVBoxLayout()
         self.tab_classes.setLayout(layout)
-        
+
         table = QTableWidget()
         table.setColumnCount(3)
         table.setHorizontalHeaderLabels(["Class ID", "Count", "Percentage"])
         table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 
         stats_list = self.stats_data.get("statistic", [])
-        class_stat = next((s for s in stats_list if s.get("name") == "Classification"), None)
-        
+        class_stat = next(
+            (s for s in stats_list if s.get("name") == "Classification"), None
+        )
+
         if class_stat and "counts" in class_stat:
             counts = class_stat["counts"]
             table.setRowCount(len(counts))
@@ -96,12 +110,13 @@ class StatsResultDialog(QDialog):
 
                     label = RenderUtils.get_label(class_id)
                     display_text = f"{class_id} ({label})"
-                    
-                    table.setItem(row, 0, QTableWidgetItem(display_text))                    
+
+                    table.setItem(row, 0, QTableWidgetItem(display_text))
                     table.setItem(row, 1, QTableWidgetItem(f"{count:,}"))
                     table.setItem(row, 2, QTableWidgetItem(f"%{percent:.2f}"))
-                except: pass
-                    
+                except:
+                    pass
+
         layout.addWidget(table)
 
     def _setup_json_tab(self):
