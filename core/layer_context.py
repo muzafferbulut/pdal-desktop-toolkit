@@ -1,13 +1,9 @@
-from dataclasses import dataclass
 from typing import List, Dict, Any, Optional
+from dataclasses import dataclass
 
 
 @dataclass
 class PipelineStage:
-    """
-    Tek bir pipeline adımını temsil eder.
-    """
-
     name: str
     params: dict
     config: dict
@@ -15,39 +11,43 @@ class PipelineStage:
 
     @property
     def display_text(self) -> str:
-        """
-        Treewidgetta görünecek ux metni.
-        """
-
         params_str = ", ".join([f"{k}:{v}" for k, v in self.params.items()])
-
         return f"{self.name} ({params_str})" if params_str else self.name
 
 
 class LayerContext:
-    """
-    Bir katman üzerine eklenen tüm stage'lerin
-    tutulduğu sınıf.
-    """
 
     def __init__(
-        self, file_path: str, initial_metadata: Dict, full_metadata: Dict = None
+        self,
+        file_path: str,
+        initial_metadata: Dict,
+        full_metadata: Dict = None,
+        reader_config: Dict = None,
     ):
         self.file_path = file_path
         self.metadata = initial_metadata
         self.full_metadata = full_metadata
 
-        # stage list
+        self.reader_config = reader_config or {
+            "type": "readers.las",
+            "filename": self.file_path,
+        }
+
         self.stages: List[PipelineStage] = []
         self.active_style: str = "Elevation"
-        self.current_render_data: Optional[Dict] = None
+
+        self.current_render_data: Optional[Any] = None
         self.is_visible: bool = True
+        self.bounds: Optional[Dict] = None
+        self.is_database: bool = (
+            False 
+        )
 
     def add_stage(self, stage: PipelineStage):
         self.stages.append(stage)
 
     def get_full_pipeline_json(self) -> List[Dict[str, Any]]:
-        pipeline = [{"type": "readers.las", "filename": self.file_path}]
+        pipeline = [self.reader_config]
 
         for stage in self.stages:
             if stage.is_active:

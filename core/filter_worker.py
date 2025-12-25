@@ -1,6 +1,7 @@
 from PyQt5.QtCore import QObject, pyqtSignal
 from core.render_utils import RenderUtils
 from core.enums import Dimensions
+import numpy as np
 import traceback
 import pdal
 import json
@@ -50,9 +51,7 @@ class FilterWorker(QObject):
                 current_arrays = pipeline.arrays
                 last_pipeline = pipeline
 
-                new_count = 0
-                if current_arrays:
-                    new_count = len(current_arrays[0])
+                new_count = sum(len(arr) for arr in current_arrays) if current_arrays else 0
 
                 percent = int((i + 1) / total_stages * 80) + 10
                 self.progress.emit(percent)
@@ -66,35 +65,29 @@ class FilterWorker(QObject):
             if not last_pipeline or not last_pipeline.arrays:
                 raise Exception("Pipeline produced no data.")
 
-            arrays = last_pipeline.arrays[0]
+            arrays = np.concatenate(last_pipeline.arrays)
             metadata = last_pipeline.metadata
 
             extracted_data = {
                 Dimensions.X: arrays[Dimensions.X.value],
                 Dimensions.Y: arrays[Dimensions.Y.value],
                 Dimensions.Z: arrays[Dimensions.Z.value],
-                "count": current_count,
+                "count": len(arrays),
             }
 
             dims = arrays.dtype.names
             if Dimensions.INTENSITY.value in dims:
-                extracted_data[Dimensions.INTENSITY] = arrays[
-                    Dimensions.INTENSITY.value
-                ]
+                extracted_data[Dimensions.INTENSITY] = arrays[Dimensions.INTENSITY.value]
 
-            if (
-                Dimensions.RED.value in dims
-                and Dimensions.GREEN.value in dims
-                and Dimensions.BLUE.value in dims
-            ):
+            if (Dimensions.RED.value in dims and 
+                Dimensions.GREEN.value in dims and 
+                Dimensions.BLUE.value in dims):
                 extracted_data[Dimensions.RED] = arrays[Dimensions.RED.value]
                 extracted_data[Dimensions.GREEN] = arrays[Dimensions.GREEN.value]
                 extracted_data[Dimensions.BLUE] = arrays[Dimensions.BLUE.value]
 
             if Dimensions.CLASSIFICATION.value in dims:
-                extracted_data[Dimensions.CLASSIFICATION] = arrays[
-                    Dimensions.CLASSIFICATION.value
-                ]
+                extracted_data[Dimensions.CLASSIFICATION] = arrays[Dimensions.CLASSIFICATION.value]
 
             vis_data = RenderUtils.downsample(extracted_data)
 
@@ -104,5 +97,6 @@ class FilterWorker(QObject):
             )
 
         except Exception as e:
+            import traceback
             error_details = f"Worker error : {str(e)}\n{traceback.format_exc()}"
             self.error.emit(error_details)

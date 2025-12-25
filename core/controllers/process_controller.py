@@ -181,8 +181,12 @@ class ProcessController(QObject):
 
         context = self.data_controller.get_layer(file_path)
         input_count = 0
-        if context and context.current_render_data:
-            input_count = context.current_render_data.get("count", 0)
+        
+        if context is not None and context.current_render_data is not None:
+            if isinstance(context.current_render_data, dict):
+                input_count = context.current_render_data.get("count", 0)
+            else:
+                input_count = len(context.current_render_data)
 
         self.filter_thread = QThread()
         self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object, input_count)

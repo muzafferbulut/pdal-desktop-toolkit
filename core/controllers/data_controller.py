@@ -150,14 +150,38 @@ class DataController(QObject):
 
     def _on_db_load_finished(self, payload):
         unique_id = f"DB://{payload['conn']['host']}/{payload['table_info']}"
-        if payload['query_filter']: unique_id += f"?{payload['query_filter']}"
+        if payload.get('query_filter'): 
+            unique_id += f"?{payload['query_filter']}"
 
-        context = LayerContext(unique_id, payload.get('metadata', {}), payload.get('metadata', {}))
+        table_parts = payload['table_info'].split('.')
+        schema = table_parts[0] if len(table_parts) > 1 else "public"
+        table = table_parts[-1]
+
+        db_reader_config = {
+            "type": "readers.pgpointcloud",
+            "connection": f"host={payload['conn']['host']} port={payload['conn']['port']} "
+                          f"dbname={payload['conn']['dbname']} user={payload['conn']['user']} "
+                          f"password={payload['conn']['password']}",
+            "schema": schema,
+            "table": table,
+            "column": "patch",
+            "where": payload.get('query_filter', "")
+        }
+
+        context = LayerContext(
+            unique_id, 
+            payload.get('metadata', {}), 
+            payload.get('metadata', {}),
+            reader_config=db_reader_config
+        )
+
         context.current_render_data = payload['data']
         context.bounds = payload['bounds']
         context.is_database = True
 
         self._data_cache[unique_id] = context
+        self.active_layer_path = unique_id
+        
         self.file_loaded.emit(unique_id, payload['table_info'])
         self.status_message.emit("Layer loaded from Database.", 3000)
         self.progress_update.emit(100)
