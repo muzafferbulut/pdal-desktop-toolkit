@@ -544,26 +544,6 @@ class MainWindow(QMainWindow):
 
         self.addDockWidget(Qt.RightDockWidgetArea, self.toolbox_dock)
 
-    def _on_toolbar_crop(self):
-        current_file = self._get_active_layer_path()
-        if not current_file:
-            return
-
-        self.crop_dialog = CropDialog(self)
-
-        self.crop_dialog.draw_requested.connect(self._activate_crop_drawing)
-        self.crop_dialog.finished.connect(self._on_crop_dialog_finished)
-
-        if self.crop_dialog.exec_():
-            params = self.crop_dialog.get_params()
-            if params.get("bounds"):
-                self.progressBar.show()
-                self.controller.start_filter_process(
-                    current_file, "Crop (BBox)", params
-                )
-
-        self.three_d_view.disable_crop_gizmo()
-
     def _activate_crop_drawing(self):
         self.tab_widget.setCurrentWidget(self.three_d_view)
 

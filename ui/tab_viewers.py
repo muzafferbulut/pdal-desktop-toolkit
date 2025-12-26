@@ -254,7 +254,8 @@ class ThreeDView(QFrame):
 
         if bounds:
             self.plotter.add_box_widget(
-                callback=callback, bounds=bounds, color="orange", rotation_enabled=False
+                callback=callback, bounds=bounds, color="orange", 
+                rotation_enabled=False
             )
 
     def disable_crop_gizmo(self):
