@@ -130,40 +130,36 @@ class ThreeDView(QFrame):
 
         points = np.column_stack((x, y, z))
         point_cloud = pv.PolyData(points)
-
         point_cloud["Elevation"] = z
+
+        if Dimensions.INTENSITY in data_dict:
+            point_cloud["Intensity"] = data_dict[Dimensions.INTENSITY]
+        if Dimensions.CLASSIFICATION in data_dict:
+            point_cloud["Classification"] = data_dict[Dimensions.CLASSIFICATION]
 
         scalars = "Elevation"
         rgb = False
         cmap = "viridis"
-
         annotations = {}
-
+        is_categorical = False
+        
         if color_by == Dimensions.INTENSITY and Dimensions.INTENSITY in data_dict:
-            point_cloud["Intensity"] = data_dict[Dimensions.INTENSITY]
             scalars = "Intensity"
             cmap = "gray"
-
-        elif (
-            color_by == Dimensions.CLASSIFICATION
-            and Dimensions.CLASSIFICATION in data_dict
-        ):
-            cls_data = data_dict[Dimensions.CLASSIFICATION]
-            point_cloud["Classification"] = cls_data
+        elif color_by == Dimensions.CLASSIFICATION and Dimensions.CLASSIFICATION in data_dict:
             scalars = "Classification"
             cmap = "tab10"
-
+            is_categorical = True
+            cls_data = data_dict[Dimensions.CLASSIFICATION]
             unique_classes = np.unique(cls_data)
             for c in unique_classes:
                 annotations[float(c)] = RenderUtils.get_label(c)
-
         elif color_by == Dimensions.RGB and Dimensions.RED in data_dict:
             r = data_dict[Dimensions.RED]
             g = data_dict[Dimensions.GREEN]
             b = data_dict[Dimensions.BLUE]
-
+            
             max_val = max(r.max(), g.max(), b.max())
-
             if max_val > 255:
                 scale = 255.0 / max_val
                 r = (r * scale).astype(np.uint8)
@@ -179,9 +175,30 @@ class ThreeDView(QFrame):
             scalars = "RGB"
             rgb = True
 
+        if hasattr(self.plotter, "clear_scalar_bars"):
+            self.plotter.clear_scalar_bars()
+        else:
+            bars = getattr(self.plotter, "scalar_bars", None)
+            if bars is None:
+                bars = getattr(self.plotter, "_scalar_bars", {})
+            
+            for title in list(bars.keys()):
+                self.plotter.remove_scalar_bar(title)
+
         self.plotter.add_axes()
+        
         if file_path in self.layer_actors:
             self.plotter.remove_actor(self.layer_actors[file_path])
+
+        clim = None
+        if not rgb and not is_categorical and scalars in point_cloud.point_data:
+            values = point_cloud.point_data[scalars]
+            try:
+                low, high = np.percentile(values, [2, 98])
+                if low == high: high += 0.001
+                clim = [low, high]
+            except:
+                clim = None
 
         scalar_bar_args = {
             "title": None,
@@ -206,11 +223,17 @@ class ThreeDView(QFrame):
                 categories=bool(annotations),
                 show_scalar_bar=not rgb,
                 annotations=annotations if annotations else None,
+                clim=clim
             )
             self.layer_actors[file_path] = new_actor
 
             if rgb:
-                self.plotter.remove_scalar_bar()
+                if hasattr(self.plotter, "clear_scalar_bars"):
+                    self.plotter.clear_scalar_bars()
+                else:
+                    bars = getattr(self.plotter, "scalar_bars", getattr(self.plotter, "_scalar_bars", {}))
+                    for title in list(bars.keys()):
+                        self.plotter.remove_scalar_bar(title)
 
             self.current_mesh = point_cloud
 
@@ -220,7 +243,7 @@ class ThreeDView(QFrame):
             self.plotter.render()
 
         except Exception as e:
-            print(f"Render error: {e}")
+            print(f"Render Error: {e}")
 
     def zoom_to_mesh(self, file_path: str):
         if hasattr(self, "layer_actors") and file_path in self.layer_actors:
