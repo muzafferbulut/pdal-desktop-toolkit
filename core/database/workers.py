@@ -1,9 +1,11 @@
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
 from sqlalchemy import text, create_engine
+from core.render_utils import RenderUtils
 import pandas as pd
 import numpy as np
 import pdal
 import json
+import math
 
 class DbWorkerSignals(QObject):
     finished = pyqtSignal(object)
@@ -109,7 +111,13 @@ class DbLoadWorker(QThread):
     def run(self):
         try:
             self.signals.progress.emit(-1)
-            config = {
+            total_points = self._get_total_count()
+            step = 1
+
+            if total_points > RenderUtils.MAX_VISIBLE_POINTS:
+                step = math.ceil(total_points / RenderUtils.MAX_VISIBLE_POINTS)
+
+            reader_config = {
                 "type": "readers.pgpointcloud",
                 "schema": self.schema,
                 "table": self.table,
@@ -117,28 +125,39 @@ class DbLoadWorker(QThread):
                 "where": self.where,
                 "connection": f"host={self.conn_info['host']} port={self.conn_info['port']} dbname={self.conn_info['dbname']} user={self.conn_info['user']} password={self.conn_info['password']}",
             }
-            pipeline = pdal.Pipeline(
-                json.dumps([config, {"type": "filters.decimation", "step": 10}])
-            )
+
+            stages = [reader_config]
+
+            if step > 1:
+                stages.append({"type": "filters.decimation", "step": step})
+
+            pipeline = pdal.Pipeline(json.dumps(stages))
             pipeline.execute()
 
             if not pipeline.arrays:
                 raise Exception("No points found for the given query.")
 
-            df = pd.DataFrame(np.concatenate(pipeline.arrays))
+            arrays = pipeline.arrays[0]
+            data_dict = {}
+            for name in arrays.dtype.names:
+                data_dict[name] = arrays[name]
+
+            data_dict["count"] = len(arrays)
+
+            bounds = {
+                "minx": float(np.min(data_dict["X"])),
+                "maxx": float(np.max(data_dict["X"])),
+                "miny": float(np.min(data_dict["Y"])),
+                "maxy": float(np.max(data_dict["Y"])),
+            }
 
             self.signals.progress.emit(100)
             self.signals.finished.emit(
                 {
-                    "data": df,
+                    "data": data_dict,
                     "metadata": pipeline.metadata,
                     "conn": self.conn_info,
-                    "bounds": {
-                        "minx": float(df["X"].min()),
-                        "maxx": float(df["X"].max()),
-                        "miny": float(df["Y"].min()),
-                        "maxy": float(df["Y"].max()),
-                    },
+                    "bounds": bounds,
                     "table_info": f"{self.schema}.{self.table}",
                     "query_filter": self.where,
                 }
@@ -147,6 +166,20 @@ class DbLoadWorker(QThread):
             self.signals.progress.emit(0)
             self.signals.error.emit(str(e))
 
+    def _get_total_count(self) -> int:
+        try:
+            url = f"postgresql://{self.conn_info['user']}:{self.conn_info['password']}@{self.conn_info['host']}:{self.conn_info['port']}/{self.conn_info['dbname']}"
+            engine = create_engine(url)
+            where_sql = f"WHERE {self.where}" if self.where else ""
+            query = text(f'SELECT Sum(PC_NumPoints(patch)) FROM "{self.schema}"."{self.table}" {where_sql}')
+
+            with engine.connect() as conn:
+                result = conn.execute(query).scalar()
+                return int(result) if result else 0
+            
+        except Exception as e:
+            print(f"DB Count Error: {e}")
+            return 0
 
 class DbQueryWorker(QThread):
     finished_success = pyqtSignal(object)

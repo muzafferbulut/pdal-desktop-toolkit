@@ -5,21 +5,49 @@ from typing import Dict, Any, Union
 from core.enums import Dimensions
 import pdal
 import json
+import math
 
 
 class LasLazReader(IBasicReader, IMetadataExtractor, IDataSampler):
 
-    def __init__(self, sample_step: int = 10):
+    def __init__(self):
         self._analysis_pipeline: Union[pdal.Pipeline, None] = None
         self._render_pipeline: Union[pdal.Pipeline, None] = None
-        self._sample_step = sample_step
         self._file_path: Union[str, None] = None
+
+    def _calculate_step(self, file_path:str) -> int:
+        try:
+            quick_config = {
+                "pipeline": [
+                    {"type":"readers.las", "filename":file_path, "count":10}
+                ]
+            }
+            pipeline = pdal.Pipeline(json.dumps(quick_config))
+            pipeline.execute()
+            metadata =  json.loads(pipeline.metadata)
+            total_points = metadata.get("metadata", {}).get("readers.las", {}).get("count", 0)
+            
+            if total_points <= RenderUtils.MAX_VISIBLE_POINTS:
+                return 1
+            step = math.ceil(total_points / RenderUtils.MAX_VISIBLE_POINTS)
+            return step
+        except Exception as e:
+            return 10
 
     def read(self, file_path: str) -> Dict[str, Any]:
         self._file_path = file_path
+        dynamic_step = self._calculate_step(file_path)
         try:
+            pipeline_stages = [{"type": "readers.las", "filename": f"{file_path}"}]
+            
+            if dynamic_step > 1:
+                pipeline_stages.append({
+                    "type":"filters.decimation",
+                    "step": dynamic_step
+                })
+            
             render_config = {
-                "pipeline": [{"type": "readers.las", "filename": f"{file_path}"}]
+                "pipeline": pipeline_stages
             }
             self._render_pipeline = pdal.Pipeline(json.dumps(render_config))
             count = self._render_pipeline.execute()
@@ -163,9 +191,8 @@ class LasLazReader(IBasicReader, IMetadataExtractor, IDataSampler):
                     Dimensions.CLASSIFICATION.value
                 ]
 
-            vis_data = RenderUtils.downsample(extracted_data)
-            vis_data["status"] = True
-            return vis_data
+            extracted_data["status"] = True
+            return extracted_data
 
         except Exception as e:
             import traceback
