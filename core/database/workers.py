@@ -1,11 +1,9 @@
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
 from sqlalchemy import text, create_engine
-from core.render_utils import RenderUtils
-import pandas as pd
+from core.geo_utils import GeoUtils
 import numpy as np
 import pdal
 import json
-import math
 
 class DbWorkerSignals(QObject):
     finished = pyqtSignal(object)
@@ -111,13 +109,7 @@ class DbLoadWorker(QThread):
     def run(self):
         try:
             self.signals.progress.emit(-1)
-            total_points = self._get_total_count()
-            step = 1
-
-            if total_points > RenderUtils.MAX_VISIBLE_POINTS:
-                step = math.ceil(total_points / RenderUtils.MAX_VISIBLE_POINTS)
-
-            reader_config = {
+            config = {
                 "type": "readers.pgpointcloud",
                 "schema": self.schema,
                 "table": self.table,
@@ -125,13 +117,9 @@ class DbLoadWorker(QThread):
                 "where": self.where,
                 "connection": f"host={self.conn_info['host']} port={self.conn_info['port']} dbname={self.conn_info['dbname']} user={self.conn_info['user']} password={self.conn_info['password']}",
             }
-
-            stages = [reader_config]
-
-            if step > 1:
-                stages.append({"type": "filters.decimation", "step": step})
-
-            pipeline = pdal.Pipeline(json.dumps(stages))
+            pipeline = pdal.Pipeline(
+                json.dumps([config, {"type": "filters.decimation", "step": 10}])
+            )
             pipeline.execute()
 
             if not pipeline.arrays:
@@ -141,23 +129,69 @@ class DbLoadWorker(QThread):
             data_dict = {}
             for name in arrays.dtype.names:
                 data_dict[name] = arrays[name]
-
+            
             data_dict["count"] = len(arrays)
+            
+            raw_meta = pipeline.metadata.get("metadata", {})
+            reader_meta = raw_meta.get("readers.pgpointcloud", {})
+            wkt = reader_meta.get("srs", {}).get("wkt")
 
-            bounds = {
-                "minx": float(np.min(data_dict["X"])),
-                "maxx": float(np.max(data_dict["X"])),
-                "miny": float(np.min(data_dict["Y"])),
-                "maxy": float(np.max(data_dict["Y"])),
+            if not wkt:
+                wkt = reader_meta.get("spatialreference")
+            
+            source_epsg = None
+            if wkt:
+                crs_info = GeoUtils.parse_crs_info(wkt)
+                source_epsg = crs_info.get("epsg")
+
+            minx, maxx = float(np.min(data_dict["X"])), float(np.max(data_dict["X"]))
+            miny, maxy = float(np.min(data_dict["Y"])), float(np.max(data_dict["Y"]))
+            minz, maxz = 0.0, 0.0
+            if "Z" in data_dict:
+                 minz, maxz = float(np.min(data_dict["Z"])), float(np.max(data_dict["Z"]))
+
+            raw_bounds = {
+                "minx": minx, "maxx": maxx,
+                "miny": miny, "maxy": maxy,
+                "minz": minz, "maxz": maxz,
+            }
+
+            map_bounds = raw_bounds.copy()
+            map_bounds["status"] = True
+
+            if source_epsg:
+                if str(source_epsg) != "4326":
+                    transformed = GeoUtils.transform_bbox(raw_bounds, int(source_epsg), 4326)
+                    if transformed.get("status"):
+                        map_bounds.update(transformed)
+                        map_bounds["minz"] = minz
+                        map_bounds["maxz"] = maxz
+
+            x_range = f"[{minx:.2f} to {maxx:.2f}]"
+            y_range = f"[{miny:.2f} to {maxy:.2f}]"
+            z_range = f"[{minz:.2f} to {maxz:.2f}]"
+
+            summary_metadata = {
+                "status": True,
+                "points": len(arrays),
+                "is_compressed": False,
+                "crs_name": f"EPSG:{source_epsg}" if source_epsg else "Unknown",
+                "epsg": source_epsg if source_epsg else "N/A", 
+                "unit": "N/A",
+                "software_id": "PostgreSQL/PointCloud",
+                "x_range": x_range,
+                "y_range": y_range,
+                "z_range": z_range,
             }
 
             self.signals.progress.emit(100)
             self.signals.finished.emit(
                 {
                     "data": data_dict,
-                    "metadata": pipeline.metadata,
+                    "raw_metadata": pipeline.metadata,
+                    "summary_metadata": summary_metadata,
                     "conn": self.conn_info,
-                    "bounds": bounds,
+                    "bounds": map_bounds,
                     "table_info": f"{self.schema}.{self.table}",
                     "query_filter": self.where,
                 }
@@ -166,20 +200,6 @@ class DbLoadWorker(QThread):
             self.signals.progress.emit(0)
             self.signals.error.emit(str(e))
 
-    def _get_total_count(self) -> int:
-        try:
-            url = f"postgresql://{self.conn_info['user']}:{self.conn_info['password']}@{self.conn_info['host']}:{self.conn_info['port']}/{self.conn_info['dbname']}"
-            engine = create_engine(url)
-            where_sql = f"WHERE {self.where}" if self.where else ""
-            query = text(f'SELECT Sum(PC_NumPoints(patch)) FROM "{self.schema}"."{self.table}" {where_sql}')
-
-            with engine.connect() as conn:
-                result = conn.execute(query).scalar()
-                return int(result) if result else 0
-            
-        except Exception as e:
-            print(f"DB Count Error: {e}")
-            return 0
 
 class DbQueryWorker(QThread):
     finished_success = pyqtSignal(object)

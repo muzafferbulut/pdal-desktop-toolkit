@@ -114,7 +114,10 @@ class DataController(QObject):
             for name, v in valid_items:
                 data_to_write[name] = v
         else:
-            data_to_write = raw_data.to_records(index=False)
+            if hasattr(raw_data, "to_records"):
+                 data_to_write = raw_data.to_records(index=False)
+            else:
+                 return
 
         source_name = os.path.basename(self.active_layer_path)
         self.logger.info(f"Exporting '{source_name}' to DB with SRID: {target_srid}")
@@ -167,11 +170,13 @@ class DataController(QObject):
             "column": "patch",
             "where": payload.get('query_filter', "")
         }
+        summary_metadata = payload.get("summary_metadata", {})
+        raw_metadata = payload.get("raw_metadata", {})
 
         context = LayerContext(
             unique_id, 
-            payload.get('metadata', {}), 
-            payload.get('metadata', {}),
+            summary_metadata,
+            raw_metadata,
             reader_config=db_reader_config
         )
 
