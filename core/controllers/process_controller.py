@@ -40,13 +40,32 @@ class ProcessController(QObject):
             self.log_message.emit("ERROR", f"Could not create stage for '{tool_name}'.")
             return
         
-        pipeline_config = context.get_full_pipeline_json()
-        if isinstance(new_stage.config, list):
-            pipeline_config.extend(new_stage.config)
+        previous_data = context.get_latest_data()
+        
+        pipeline_config = []
+        input_data = None
+        
+        if previous_data is not None:
+            self.log_message.emit("INFO", f"Filter Running (Cached): {new_stage.display_text}...")
+            
+            if isinstance(new_stage.config, list):
+                pipeline_config = new_stage.config
+            else:
+                pipeline_config = [new_stage.config]
+
+            input_data = previous_data
         else:
-            pipeline_config.append(new_stage.config)
-        self.log_message.emit("INFO", f"Filter Running: {new_stage.display_text}...")
-        self._start_filter_worker(file_path, pipeline_config, new_stage)
+            self.log_message.emit("INFO", f"Filter Running (Full): {new_stage.display_text}...")
+            
+            pipeline_config = context.get_full_pipeline_json()
+            if isinstance(new_stage.config, list):
+                pipeline_config.extend(new_stage.config)
+            else:
+                pipeline_config.append(new_stage.config)
+                
+            input_data = None
+
+        self._start_filter_worker(file_path, pipeline_config, new_stage, input_data=input_data)
         
     def remove_stage(self, file_path:str, stage_index:int):
         context = self.data_controller.get_layer(file_path)
@@ -56,6 +75,10 @@ class ProcessController(QObject):
         if 0 <= stage_index < len(context.stages):
             stage_name = context.stages[stage_index].name
             context.remove_stage(stage_index)
+
+            for stage in context.stages:
+                stage.cached_data = None
+            
             self.log_message.emit("INFO", f"Stage '{stage_name}' removed. Recalculating pipeline...")
             new_pipeline = context.get_full_pipeline_json()
             self._start_filter_worker(file_path, new_pipeline, stage_object=None)
@@ -104,7 +127,6 @@ class ProcessController(QObject):
         save_path = params.get("filename")
         resolution = params.get("resolution")
         output_type = params.get("output_type")
-
         pipeline_config = context.get_full_pipeline_json()
         
         writer_stage = {
@@ -166,7 +188,7 @@ class ProcessController(QObject):
         
         self._start_filter_worker(file_path, full_pipeline_config, stage_object=stages)
 
-    def _start_filter_worker(self, file_path: str, pipeline_config: list, stage_object: Optional[PipelineStage]):
+    def _start_filter_worker(self, file_path: str, pipeline_config: list, stage_object: Optional[PipelineStage], input_data: dict = None):
         self.progress_update.emit(1)
         self.status_message.emit("Applying filter...", 0)
 
@@ -182,14 +204,16 @@ class ProcessController(QObject):
         context = self.data_controller.get_layer(file_path)
         input_count = 0
         
-        if context is not None and context.current_render_data is not None:
+        if input_data:
+            input_count = input_data.get("count", 0)
+        elif context is not None and context.current_render_data is not None:
             if isinstance(context.current_render_data, dict):
                 input_count = context.current_render_data.get("count", 0)
             else:
                 input_count = len(context.current_render_data)
 
         self.filter_thread = QThread()
-        self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object, input_count)
+        self.filter_worker = FilterWorker(file_path, pipeline_config, stage_object, input_count, input_data=input_data)
         self.filter_worker.moveToThread(self.filter_thread)
         
         self.filter_thread.started.connect(self.filter_worker.run)
@@ -245,6 +269,8 @@ class ProcessController(QObject):
             self.log_message.emit("INFO", "=== Batch Process Completed ===")
 
         elif stage_object:
+            stage_object.cached_data = result_data
+            
             context.add_stage(stage_object)
             output_count = result_data.get("count", 0)
             

@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+import numpy as np
 
 
 @dataclass
@@ -8,6 +9,7 @@ class PipelineStage:
     params: dict
     config: dict
     is_active: bool = True
+    cached_data: Optional[Dict[str, np.ndarray]] = None
 
     @property
     def display_text(self) -> str:
@@ -61,3 +63,13 @@ class LayerContext:
     def remove_stage(self, index: int):
         if 0 <= index < len(self.stages):
             del self.stages[index]
+
+    def get_latest_data(self) -> Optional[Dict[str, np.ndarray]]:
+        if not self.stages:
+            return self.current_render_data
+        
+        for stage in reversed(self.stages):
+            if stage.is_active and stage.cached_data is not None:
+                return stage.cached_data
+        
+        return self.current_render_data
