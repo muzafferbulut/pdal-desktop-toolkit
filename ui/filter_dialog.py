@@ -12,10 +12,11 @@ from PyQt5.QtWidgets import (
     QGroupBox,
     QFrame,
     QMessageBox,
+    QComboBox,
 )
 from core.tools.registry import ToolRegistry
 from PyQt5.QtCore import Qt
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 
 class FilterParamsDialog(QDialog):
@@ -64,7 +65,6 @@ class FilterParamsDialog(QDialog):
         header_layout.addLayout(title_content_layout)
         main_layout.addLayout(header_layout)
 
-        # Divider Line
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
@@ -103,6 +103,7 @@ class FilterParamsDialog(QDialog):
             widget = QCheckBox()
             widget.setChecked(value)
             return widget
+        
         elif isinstance(value, float):
             widget = QDoubleSpinBox()
             widget.setRange(-999999.0, 999999.0)
@@ -110,24 +111,57 @@ class FilterParamsDialog(QDialog):
             widget.setValue(value)
             widget.setButtonSymbols(QDoubleSpinBox.NoButtons)
             return widget
+        
         elif isinstance(value, int):
             widget = QSpinBox()
             widget.setRange(-999999, 999999)
             widget.setValue(value)
             widget.setButtonSymbols(QSpinBox.NoButtons)
             return widget
+            
+        elif isinstance(value, list):
+            widget = QComboBox()
+            widget.setStyleSheet("""
+                QComboBox {
+                    border: 1px solid #dcdcdc;
+                    border-radius: 3px;
+                    padding: 3px;
+                    background-color: #f8f9fa; 
+                    min-height: 20px;
+                }
+                QComboBox::drop-down {
+                    border: 0px; /* Ok işaretinin olduğu yeri ayırma */
+                }
+                QComboBox::down-arrow {
+                    image: url(ui/resources/icons/down.png);
+                    width: 10px;
+                    height: 10px;
+                    margin-right: 5px;
+                }
+            """)
+            for item in value:
+                widget.addItem(str(item))
+            return widget
+            
         else:
             widget = QLineEdit(str(value))
             return widget
 
     def _on_accept(self):
         for key, widget in self._widgets.items():
+            
             if isinstance(widget, QCheckBox):
                 self.result_params[key] = widget.isChecked()
+                
             elif isinstance(widget, (QSpinBox, QDoubleSpinBox)):
                 self.result_params[key] = widget.value()
+                
+            elif isinstance(widget, QComboBox):
+                self.result_params[key] = widget.currentText()
+                
             elif isinstance(widget, QLineEdit):
                 self.result_params[key] = widget.text()
+                
         self.accept()
 
     def get_params(self) -> Dict[str, Any]:
