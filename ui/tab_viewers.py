@@ -108,7 +108,6 @@ class ThreeDView(QFrame):
         self.current_mesh = None
 
         self.plotter.set_background("#42535C", top="#BBE2F1")
-
         self.plotter.camera_position = "iso"
         self.plotter.show_axes()
 
@@ -121,12 +120,33 @@ class ThreeDView(QFrame):
         color_by: str = "Elevation",
         reset_view: bool = True,
     ):
+        point_cloud = self._create_point_cloud(data_dict)
+        if point_cloud is None:
+            return
+
+        style_params = self._resolve_style_parameters(point_cloud, data_dict, color_by)
+        scalars = style_params["scalars"]
+        rgb = style_params["rgb"]
+        
+        self._cleanup_scene_for_layer(file_path)
+
+        clim = self._calculate_robust_clim(point_cloud, scalars, rgb, style_params["is_categorical"])
+
+        self._add_mesh_to_scene(
+            file_path, 
+            point_cloud, 
+            style_params, 
+            clim, 
+            reset_view
+        )
+
+    def _create_point_cloud(self, data_dict: dict) -> pv.PolyData:
         x = data_dict.get(Dimensions.X)
         y = data_dict.get(Dimensions.Y)
         z = data_dict.get(Dimensions.Z)
 
         if x is None:
-            return
+            return None
 
         points = np.column_stack((x, y, z))
         point_cloud = pv.PolyData(points)
@@ -136,52 +156,65 @@ class ThreeDView(QFrame):
             point_cloud["Intensity"] = data_dict[Dimensions.INTENSITY]
         if Dimensions.CLASSIFICATION in data_dict:
             point_cloud["Classification"] = data_dict[Dimensions.CLASSIFICATION]
+            
+        return point_cloud
 
-        scalars = "Elevation"
-        rgb = False
-        cmap = "viridis"
-        annotations = {}
-        is_categorical = False
-        
+    def _resolve_style_parameters(self, point_cloud, data_dict, color_by) -> dict:
+        params = {
+            "scalars": "Elevation",
+            "rgb": False,
+            "cmap": "viridis",
+            "annotations": {},
+            "is_categorical": False
+        }
+
         if color_by == Dimensions.INTENSITY and Dimensions.INTENSITY in data_dict:
-            scalars = "Intensity"
-            cmap = "gray"
+            params["scalars"] = "Intensity"
+            params["cmap"] = "gray"
+        
         elif color_by == Dimensions.CLASSIFICATION and Dimensions.CLASSIFICATION in data_dict:
-            scalars = "Classification"
-            cmap = "tab10"
-            is_categorical = True
+            params["scalars"] = "Classification"
+            params["cmap"] = "tab10"
+            params["is_categorical"] = True
+            
             cls_data = data_dict[Dimensions.CLASSIFICATION]
             unique_classes = np.unique(cls_data)
             for c in unique_classes:
-                annotations[float(c)] = RenderUtils.get_label(c)
+                params["annotations"][float(c)] = RenderUtils.get_label(c)
+                
         elif color_by == Dimensions.RGB and Dimensions.RED in data_dict:
-            r = data_dict[Dimensions.RED]
-            g = data_dict[Dimensions.GREEN]
-            b = data_dict[Dimensions.BLUE]
+            self._inject_rgb_data(point_cloud, data_dict)
+            params["scalars"] = "RGB"
+            params["rgb"] = True
             
-            max_val = max(r.max(), g.max(), b.max())
-            if max_val > 255:
-                scale = 255.0 / max_val
-                r = (r * scale).astype(np.uint8)
-                g = (g * scale).astype(np.uint8)
-                b = (b * scale).astype(np.uint8)
-            else:
-                r = r.astype(np.uint8)
-                g = g.astype(np.uint8)
-                b = b.astype(np.uint8)
+        return params
 
-            rgb_array = np.column_stack((r, g, b))
-            point_cloud.point_data["RGB"] = rgb_array
-            scalars = "RGB"
-            rgb = True
+    def _inject_rgb_data(self, point_cloud, data_dict):
+        r = data_dict[Dimensions.RED]
+        g = data_dict[Dimensions.GREEN]
+        b = data_dict[Dimensions.BLUE]
+        
+        max_val = max(r.max(), g.max(), b.max())
+        if max_val > 255:
+            scale = 255.0 / max_val
+            r = (r * scale).astype(np.uint8)
+            g = (g * scale).astype(np.uint8)
+            b = (b * scale).astype(np.uint8)
+        else:
+            r = r.astype(np.uint8)
+            g = g.astype(np.uint8)
+            b = b.astype(np.uint8)
 
+        rgb_array = np.column_stack((r, g, b))
+        point_cloud.point_data["RGB"] = rgb_array
+
+    def _cleanup_scene_for_layer(self, file_path):
         if hasattr(self.plotter, "clear_scalar_bars"):
             self.plotter.clear_scalar_bars()
         else:
             bars = getattr(self.plotter, "scalar_bars", None)
             if bars is None:
                 bars = getattr(self.plotter, "_scalar_bars", {})
-            
             for title in list(bars.keys()):
                 self.plotter.remove_scalar_bar(title)
 
@@ -190,16 +223,19 @@ class ThreeDView(QFrame):
         if file_path in self.layer_actors:
             self.plotter.remove_actor(self.layer_actors[file_path])
 
-        clim = None
-        if not rgb and not is_categorical and scalars in point_cloud.point_data:
-            values = point_cloud.point_data[scalars]
-            try:
-                low, high = np.percentile(values, [2, 98])
-                if low == high: high += 0.001
-                clim = [low, high]
-            except:
-                clim = None
+    def _calculate_robust_clim(self, point_cloud, scalars, rgb, is_categorical):
+        if rgb or is_categorical or scalars not in point_cloud.point_data:
+            return None
+            
+        values = point_cloud.point_data[scalars]
+        try:
+            low, high = np.percentile(values, [2, 98])
+            if low == high: high += 0.001
+            return [low, high]
+        except:
+            return None
 
+    def _add_mesh_to_scene(self, file_path, point_cloud, params, clim, reset_view):
         scalar_bar_args = {
             "title": None,
             "vertical": True,
@@ -213,21 +249,21 @@ class ThreeDView(QFrame):
         try:
             new_actor = self.plotter.add_mesh(
                 point_cloud,
-                scalars=scalars,
-                rgba=rgb,
+                scalars=params["scalars"],
+                rgba=params["rgb"],
                 render_points_as_spheres=False,
                 point_size=1,
-                cmap=cmap if not rgb else None,
+                cmap=params["cmap"] if not params["rgb"] else None,
                 name=file_path,
-                scalar_bar_args=scalar_bar_args if not rgb else None,
-                categories=bool(annotations),
-                show_scalar_bar=not rgb,
-                annotations=annotations if annotations else None,
+                scalar_bar_args=scalar_bar_args if not params["rgb"] else None,
+                categories=bool(params["annotations"]),
+                show_scalar_bar=not params["rgb"],
+                annotations=params["annotations"] if params["annotations"] else None,
                 clim=clim
             )
             self.layer_actors[file_path] = new_actor
 
-            if rgb:
+            if params["rgb"]:
                 if hasattr(self.plotter, "clear_scalar_bars"):
                     self.plotter.clear_scalar_bars()
                 else:
