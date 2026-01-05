@@ -18,6 +18,8 @@ class PipelineStage:
 
 
 class LayerContext:
+    
+    MAX_CACHE_SIZE = 2 
 
     def __init__(
         self,
@@ -41,12 +43,25 @@ class LayerContext:
         self.current_render_data: Optional[Any] = None
         self.is_visible: bool = True
         self.bounds: Optional[Dict] = None
-        self.is_database: bool = (
-            False 
-        )
+        self.is_database: bool = False
 
     def add_stage(self, stage: PipelineStage):
         self.stages.append(stage)
+        self._manage_cache()
+
+    def _manage_cache(self):
+        cached_count = sum(1 for s in self.stages if s.cached_data is not None)
+        
+        if cached_count > self.MAX_CACHE_SIZE:
+            to_remove = cached_count - self.MAX_CACHE_SIZE
+            removed = 0
+
+            for stage in self.stages:
+                if stage.cached_data is not None:
+                    stage.cached_data = None
+                    removed += 1
+                    if removed >= to_remove:
+                        break
 
     def get_full_pipeline_json(self) -> List[Dict[str, Any]]:
         pipeline = [self.reader_config]

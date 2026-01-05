@@ -1,9 +1,11 @@
 from PyQt5.QtCore import QThread, pyqtSignal, QObject
 from sqlalchemy import text, create_engine
+from core.render_utils import RenderUtils
 from core.geo_utils import GeoUtils
 import numpy as np
 import pdal
 import json
+import math
 
 class DbWorkerSignals(QObject):
     finished = pyqtSignal(object)
@@ -109,6 +111,26 @@ class DbLoadWorker(QThread):
     def run(self):
         try:
             self.signals.progress.emit(-1)
+            url = f"postgresql://{self.conn_info['user']}:{self.conn_info['password']}@{self.conn_info['host']}:{self.conn_info['port']}/{self.conn_info['dbname']}"
+            engine = create_engine(url)
+            
+            total_points = 0
+            with engine.connect() as conn:
+                where_sql = f"WHERE {self.where}" if self.where else ""
+                query = text(f'SELECT sum(PC_NumPoints(patch)) FROM "{self.schema}"."{self.table}" {where_sql}')
+                result = conn.execute(query).scalar()
+                if result:
+                    total_points = int(result)
+
+            target_points = RenderUtils.MAX_VISIBLE_POINTS
+            step = 1
+            
+            if total_points > target_points:
+                step = math.ceil(total_points / target_points)
+            
+            if step < 1: 
+                step = 1
+
             config = {
                 "type": "readers.pgpointcloud",
                 "schema": self.schema,
@@ -117,8 +139,9 @@ class DbLoadWorker(QThread):
                 "where": self.where,
                 "connection": f"host={self.conn_info['host']} port={self.conn_info['port']} dbname={self.conn_info['dbname']} user={self.conn_info['user']} password={self.conn_info['password']}",
             }
+            
             pipeline = pdal.Pipeline(
-                json.dumps([config, {"type": "filters.decimation", "step": 10}])
+                json.dumps([config, {"type": "filters.decimation", "step": step}])
             )
             pipeline.execute()
 
@@ -173,7 +196,8 @@ class DbLoadWorker(QThread):
 
             summary_metadata = {
                 "status": True,
-                "points": len(arrays),
+                "points": len(arrays), 
+                "total_points_db": total_points,
                 "is_compressed": False,
                 "crs_name": f"EPSG:{source_epsg}" if source_epsg else "Unknown",
                 "epsg": source_epsg if source_epsg else "N/A", 
