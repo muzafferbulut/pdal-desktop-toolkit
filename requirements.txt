@@ -1,0 +1,9 @@
+numpy==2.4.0
+pandas==2.3.3
+pdal==3.5.3
+pyproj==3.7.2
+PyQt5==5.15.11
+pyqt5_sip==12.17.2
+pyvista==0.46.4
+pyvistaqt==0.11.3
+SQLAlchemy==2.0.45
