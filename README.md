@@ -96,4 +96,4 @@ pip install -r requirements.txt
 python app.py
 ```
 
-<img src="app.png" width="auto">
+<img src="ui/resources/app.png" width="auto">
